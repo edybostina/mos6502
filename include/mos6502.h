@@ -25,6 +25,11 @@ typedef struct {
 	// TODO: move this in the near future to a special class
 	byte memory[MEM_SIZE];
 
+	byte fetched_data;	// val read from memory
+	word addr_abs;	// location of that val
+	word addr_rel;	// for jumps
+	byte opcode;  // current instruction
+	byte cycles;  // cycles remaining for this instruction
 } MOS6502;
 
 typedef enum {
@@ -53,14 +58,6 @@ void cpu_write(MOS6502 *cpu, word addr, byte data);
 
 // set zero and negative flags based on a result;
 void cpu_set_zn_flags(MOS6502 *cpu, byte result);
-
-// zero page
-// read 1 byte from the first 256 bytes.
-byte addr_zero_page(MOS6502 *cpu);
-
-// absolute
-// read 2 bytes from anywhere.
-word addr_absolute(MOS6502 *cpu);
 
 // execute given amount of cycles
 void cpu_execute(MOS6502 *cpu, int cycles);

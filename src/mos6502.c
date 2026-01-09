@@ -1,17 +1,52 @@
 #include "../include/mos6502.h"
+#include "../include/instructions.h"
+
+struct Instruction lookup[256];
+
+void init_lookup_table() {
+	for (int i = 0; i < 256; i++) {
+		lookup[i] = (struct Instruction){"XXX", op_xxx, addr_imp, 2};
+	}
+
+	// BRK
+	lookup[0x00] = (struct Instruction){"BRK", op_brk, addr_imp, 7};
+
+	// LDA
+	lookup[0xA9] = (struct Instruction){"LDA", op_lda, addr_imm, 2};
+	lookup[0xA5] = (struct Instruction){"LDA", op_lda, addr_zp0, 3};
+	lookup[0xAD] = (struct Instruction){"LDA", op_lda, addr_abs, 4};
+
+	// LDX
+	lookup[0xA2] = (struct Instruction){"LDX", op_ldx, addr_imm, 2};
+
+	// LDY
+	lookup[0xA0] = (struct Instruction){"LDY", op_ldy, addr_imm, 2};
+
+	// NOP
+	lookup[0xEA] = (struct Instruction){"NOP", op_nop, addr_imp, 2};
+}
 
 // initialize cpu state
 void cpu_reset(MOS6502 *cpu) {
+	init_lookup_table();
+
 	cpu->a = 0;
 	cpu->x = 0;
 	cpu->y = 0;
 	cpu->sp = 0xFD;
 	cpu->status = 0x00 | FLAG_U;
 
-	uint8_t lo = cpu->memory[0xFFFC];
-	uint8_t hi = cpu->memory[0xFFFD];
+	cpu->addr_abs = 0xFFFC;
+	word lo = cpu_read(cpu, cpu->addr_abs + 0);
+	word hi = cpu_read(cpu, cpu->addr_abs + 1);
 	cpu->pc = (hi << 8) | lo;
+
+	cpu->addr_rel = 0;
+	cpu->addr_abs = 0;
+	cpu->fetched_data = 0;
+	cpu->cycles = 0;
 }
+
 // read a byte from memory
 byte cpu_read(MOS6502 *cpu, word addr) {
 	// TODO: add memory mapping logic.
@@ -47,104 +82,23 @@ void cpu_set_zn_flags(MOS6502 *cpu, byte result) {
 		cpu->status &= ~FLAG_N;
 }
 
-// zero page
-// read 1 byte from the first 256 bytes.
-byte addr_zero_page(MOS6502 *cpu) {
-	byte addr = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
-	return (word)addr;
-}
-
-// absolute
-// read 2 bytes from anywhere.
-word addr_absolute(MOS6502 *cpu) {
-	word addr = cpu_read_word(cpu, cpu->pc);
-	cpu->pc += 2;
-	return addr;
-}
-
 // execute given amount of cycles
 void cpu_execute(MOS6502 *cpu, int cycles) {
-	while (cycles > 0) {
-		// fetch
-		byte opcode = cpu_read(cpu, cpu->pc);
+	int remaining_cycles = cycles;
+
+	while (remaining_cycles > 0) {
+		cpu->opcode = cpu_read(cpu, cpu->pc);
 		cpu->pc++;
 
-		int used_cycles = 0;
+		cpu->cycles = lookup[cpu->opcode].cycles;
 
-		switch (opcode) {
-			case 0xA9:	// LDA immediate
-			{
-				byte value = cpu_read(cpu, cpu->pc);
-				cpu->pc++;
+		byte additional_cycle1 = lookup[cpu->opcode].mode(cpu);
+		byte additional_cycle2 = lookup[cpu->opcode].operate(cpu);
 
-				cpu->a = value;
+		cpu->cycles += (additional_cycle1 & additional_cycle2);
 
-				cpu_set_zn_flags(cpu, cpu->a);
-				printf("LDA #$%02X (immediate)\n", value);
-				used_cycles = 2;
-			} break;
-			case 0xA5:	// zero page: value at addr $00xx
-			{
-				word addr = addr_zero_page(cpu);
-				byte value = cpu_read(cpu, addr);
+		remaining_cycles -= cpu->cycles;
 
-				cpu->a = value;
-				cpu_set_zn_flags(cpu, cpu->a);
-
-				printf("LDA #$%02X (zero page)\n", addr);
-				used_cycles = 3;
-			} break;
-			case 0xAD:	// absolute: value at addr $xxxx
-			{
-				word addr = addr_absolute(cpu);
-				byte value = cpu_read(cpu, addr);
-
-				cpu->a = value;
-				cpu_set_zn_flags(cpu, cpu->a);
-
-				printf("LDA #$%04X (absolute)\n", addr);
-				used_cycles = 3;
-			} break;
-			case 0xA2:	// LDX immediate
-			{
-				byte value = cpu_read(cpu, cpu->pc);
-				cpu->pc++;
-
-				cpu->x = value;
-
-				cpu_set_zn_flags(cpu, cpu->x);
-
-				printf("LDX #$%02X\n", value);
-				used_cycles = 2;
-			} break;
-
-			case 0xA0:	// LDY immediate
-			{
-				byte value = cpu_read(cpu, cpu->pc);
-				cpu->pc++;
-
-				cpu->y = value;
-
-				cpu_set_zn_flags(cpu, cpu->y);
-
-				printf("LDY #$%02X\n", value);
-				used_cycles = 2;
-			} break;
-
-			case 0xEA:	// NOP no operation
-				printf("NOP\n");
-				used_cycles = 2;
-				break;
-
-			case 0x00:	// break
-				printf("brk detected! halting!\n");
-				return;
-
-			default:
-				printf("unknown opcode!! 0x%02X at PC: 0x%04X\n", opcode, cpu->pc - 1);
-				return;
-		}
-		cycles -= used_cycles;
+		printf("%s $%04X\n", lookup[cpu->opcode].name, cpu->fetched_data);
 	}
 }
