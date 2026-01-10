@@ -15,6 +15,13 @@ extern struct Instruction lookup[256];
 byte op_lda(MOS6502 *cpu);
 byte op_ldx(MOS6502 *cpu);
 byte op_ldy(MOS6502 *cpu);
+byte op_pha(MOS6502 *cpu);
+byte op_pla(MOS6502 *cpu);
+byte op_php(MOS6502 *cpu);
+byte op_plp(MOS6502 *cpu);
+byte op_sta(MOS6502 *cpu);
+byte op_stx(MOS6502 *cpu);
+byte op_sty(MOS6502 *cpu);
 byte op_nop(MOS6502 *cpu);
 byte op_brk(MOS6502 *cpu);
 byte op_xxx(MOS6502 *cpu);	// :) illegal opcodes

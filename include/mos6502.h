@@ -9,7 +9,7 @@ typedef uint8_t byte;
 typedef uint16_t word;
 
 #define MEM_SIZE 64 * 1024	// 64kb
-
+#define STACK_BASE_ADDR 0x0100
 typedef struct {
 	word pc;  // program counter 16 bit
 	byte sp;  // stack pointer 8 bit

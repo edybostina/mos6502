@@ -1,5 +1,6 @@
 #include "../include/mos6502.h"
 #include "../include/instructions.h"
+#include "../include/opcodes.h"
 
 struct Instruction lookup[256];
 
@@ -8,22 +9,29 @@ void init_lookup_table() {
 		lookup[i] = (struct Instruction){"XXX", op_xxx, addr_imp, 2};
 	}
 
-	// BRK
-	lookup[0x00] = (struct Instruction){"BRK", op_brk, addr_imp, 7};
+	lookup[OP_BRK] = (struct Instruction){"BRK", op_brk, addr_imp, 7};
+	lookup[OP_NOP] = (struct Instruction){"NOP", op_nop, addr_imp, 2};
 
-	// LDA
-	lookup[0xA9] = (struct Instruction){"LDA", op_lda, addr_imm, 2};
-	lookup[0xA5] = (struct Instruction){"LDA", op_lda, addr_zp0, 3};
-	lookup[0xAD] = (struct Instruction){"LDA", op_lda, addr_abs, 4};
+	lookup[OP_LDA_IMM] = (struct Instruction){"LDA", op_lda, addr_imm, 2};
+	lookup[OP_LDA_ZP0] = (struct Instruction){"LDA", op_lda, addr_zp0, 3};
+	lookup[OP_LDA_ABS] = (struct Instruction){"LDA", op_lda, addr_abs, 4};
 
-	// LDX
-	lookup[0xA2] = (struct Instruction){"LDX", op_ldx, addr_imm, 2};
+	lookup[OP_LDX_IMM] = (struct Instruction){"LDX", op_ldx, addr_imm, 2};
+	lookup[OP_LDY_IMM] = (struct Instruction){"LDY", op_ldy, addr_imm, 2};
 
-	// LDY
-	lookup[0xA0] = (struct Instruction){"LDY", op_ldy, addr_imm, 2};
+	lookup[OP_PHP] = (struct Instruction){"PHP", op_php, addr_imp, 3};
+	lookup[OP_PLP] = (struct Instruction){"PLP", op_plp, addr_imp, 4};
+	lookup[OP_PHA] = (struct Instruction){"PHA", op_pha, addr_imp, 3};
+	lookup[OP_PLA] = (struct Instruction){"PLA", op_pla, addr_imp, 4};
 
-	// NOP
-	lookup[0xEA] = (struct Instruction){"NOP", op_nop, addr_imp, 2};
+	lookup[OP_STA_ABS] = (struct Instruction){"STA", op_sta, addr_abs, 4};
+	lookup[OP_STA_ZP0] = (struct Instruction){"STA", op_sta, addr_zp0, 3};
+
+	lookup[OP_STX_ABS] = (struct Instruction){"STX", op_stx, addr_abs, 4};
+	lookup[OP_STX_ZP0] = (struct Instruction){"STX", op_stx, addr_zp0, 3};
+
+	lookup[OP_STY_ABS] = (struct Instruction){"STY", op_sty, addr_abs, 4};
+	lookup[OP_STY_ZP0] = (struct Instruction){"STY", op_sty, addr_zp0, 3};
 }
 
 // initialize cpu state

@@ -33,7 +33,6 @@ byte addr_abs(MOS6502 *cpu) {
 	return 0;
 }
 
-// LDA: Load Accumulator
 byte op_lda(MOS6502 *cpu) {
 	fetch(cpu);
 	cpu->a = cpu->fetched_data;
@@ -41,7 +40,6 @@ byte op_lda(MOS6502 *cpu) {
 	return 1;
 }
 
-// LDX: Load X Register
 byte op_ldx(MOS6502 *cpu) {
 	fetch(cpu);
 	cpu->x = cpu->fetched_data;
@@ -49,12 +47,55 @@ byte op_ldx(MOS6502 *cpu) {
 	return 1;
 }
 
-// LDY: Load Y Register
 byte op_ldy(MOS6502 *cpu) {
 	fetch(cpu);
 	cpu->y = cpu->fetched_data;
 	cpu_set_zn_flags(cpu, cpu->y);
 	return 1;
+}
+
+byte op_pha(MOS6502 *cpu) {
+	cpu_write(cpu, STACK_BASE_ADDR + cpu->sp, cpu->a);
+	cpu->sp--;
+	return 0;
+}
+
+byte op_pla(MOS6502 *cpu) {
+	cpu->sp++;
+	cpu->a = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
+
+	cpu_set_zn_flags(cpu, cpu->a);
+	return 0;
+}
+
+byte op_php(MOS6502 *cpu) {
+	cpu_write(cpu, STACK_BASE_ADDR + cpu->sp, cpu->status | FLAG_B | FLAG_U);
+	cpu->sp--;
+	return 0;
+}
+
+byte op_plp(MOS6502 *cpu) {
+	cpu->sp++;
+	cpu->status = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
+
+	cpu->status |= FLAG_U;
+
+	return 0;
+}
+
+byte op_sta(MOS6502 *cpu) {
+	cpu_write(cpu, cpu->addr_abs, cpu->a);
+	return 0;
+}
+
+byte op_stx(MOS6502 *cpu) {
+	cpu_write(cpu, cpu->addr_abs, cpu->x);
+	return 0;
+}
+
+byte op_sty(MOS6502 *cpu) {
+	cpu_write(cpu, cpu->addr_abs, cpu->y);
+	return 0;
 }
 
 byte op_nop(MOS6502 *cpu) {
