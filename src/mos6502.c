@@ -32,6 +32,34 @@ void init_lookup_table() {
 
 	lookup[OP_STY_ABS] = (struct Instruction){"STY", op_sty, addr_abs, 4};
 	lookup[OP_STY_ZP0] = (struct Instruction){"STY", op_sty, addr_zp0, 3};
+
+	lookup[OP_JMP_ABS] = (struct Instruction){"JMP", op_jmp, addr_abs, 3};
+	lookup[OP_JMP_IND] = (struct Instruction){"JMP", op_jmp, addr_ind, 5};
+
+	lookup[OP_BPL] = (struct Instruction){"BPL", op_bpl, addr_rel, 2};
+	lookup[OP_BMI] = (struct Instruction){"BMI", op_bmi, addr_rel, 2};
+	lookup[OP_BVC] = (struct Instruction){"BVC", op_bvc, addr_rel, 2};
+	lookup[OP_BVS] = (struct Instruction){"BVS", op_bvs, addr_rel, 2};
+	lookup[OP_BCC] = (struct Instruction){"BCC", op_bcc, addr_rel, 2};
+	lookup[OP_BCS] = (struct Instruction){"BCS", op_bcs, addr_rel, 2};
+	lookup[OP_BNE] = (struct Instruction){"BNE", op_bne, addr_rel, 2};
+	lookup[OP_BEQ] = (struct Instruction){"BEQ", op_beq, addr_rel, 2};
+
+	lookup[OP_ADC_IMM] = (struct Instruction){"ADC", op_adc, addr_imm, 2};
+	lookup[OP_ADC_ZP0] = (struct Instruction){"ADC", op_adc, addr_zp0, 3};
+	lookup[OP_ADC_ABS] = (struct Instruction){"ADC", op_adc, addr_abs, 4};
+
+	lookup[OP_SBC_IMM] = (struct Instruction){"SBC", op_sbc, addr_imm, 2};
+	lookup[OP_SBC_ZP0] = (struct Instruction){"SBC", op_sbc, addr_zp0, 3};
+	lookup[OP_SBC_ABS] = (struct Instruction){"SBC", op_sbc, addr_abs, 4};
+
+	lookup[OP_CLC] = (struct Instruction){"CLC", op_clc, addr_imp, 2};
+	lookup[OP_SEC] = (struct Instruction){"SEC", op_sec, addr_imp, 2};
+	lookup[OP_CLI] = (struct Instruction){"CLI", op_cli, addr_imp, 2};
+	lookup[OP_SEI] = (struct Instruction){"SEI", op_sei, addr_imp, 2};
+	lookup[OP_CLV] = (struct Instruction){"CLV", op_clv, addr_imp, 2};
+	lookup[OP_CLD] = (struct Instruction){"CLD", op_cld, addr_imp, 2};
+	lookup[OP_SED] = (struct Instruction){"SED", op_sed, addr_imp, 2};
 }
 
 // initialize cpu state
@@ -93,11 +121,9 @@ void cpu_set_zn_flags(MOS6502 *cpu, byte result) {
 // execute given amount of cycles
 void cpu_execute(MOS6502 *cpu, int cycles) {
 	int remaining_cycles = cycles;
-
 	while (remaining_cycles > 0) {
 		cpu->opcode = cpu_read(cpu, cpu->pc);
 		cpu->pc++;
-
 		cpu->cycles = lookup[cpu->opcode].cycles;
 
 		byte additional_cycle1 = lookup[cpu->opcode].mode(cpu);
