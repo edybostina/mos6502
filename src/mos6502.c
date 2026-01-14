@@ -14,9 +14,19 @@ void init_lookup_table() {
 
 	lookup[OP_LDA_IMM] = (struct Instruction){"LDA", op_lda, addr_imm, 2};
 	lookup[OP_LDA_ZP0] = (struct Instruction){"LDA", op_lda, addr_zp0, 3};
+	lookup[OP_LDA_ZP0_X] = (struct Instruction){"LDA", op_lda, addr_zp0x, 4};
 	lookup[OP_LDA_ABS] = (struct Instruction){"LDA", op_lda, addr_abs, 4};
+	lookup[OP_LDA_ABS_X] = (struct Instruction){"LDA", op_lda, addr_absx, 4};
+	lookup[OP_LDA_ABS_Y] = (struct Instruction){"LDA", op_lda, addr_absy, 4};
+	lookup[OP_LDA_IND_Y] = (struct Instruction){"LDA", op_lda, addr_indx, 6};
+	lookup[OP_LDA_IND_X] = (struct Instruction){"LDA", op_lda, addr_indy, 5};
 
 	lookup[OP_LDX_IMM] = (struct Instruction){"LDX", op_ldx, addr_imm, 2};
+	lookup[OP_LDX_ZP0] = (struct Instruction){"LDX", op_ldx, addr_zp0, 3};
+	lookup[OP_LDX_ZP0_Y] = (struct Instruction){"LDX", op_ldx, addr_zp0y, 4};
+	lookup[OP_LDX_ABS] = (struct Instruction){"LDX", op_ldx, addr_abs, 4};
+	lookup[OP_LDX_ABS_Y] = (struct Instruction){"LDX", op_ldx, addr_absy, 4};
+
 	lookup[OP_LDY_IMM] = (struct Instruction){"LDY", op_ldy, addr_imm, 2};
 
 	lookup[OP_PHP] = (struct Instruction){"PHP", op_php, addr_imp, 3};
@@ -60,6 +70,10 @@ void init_lookup_table() {
 	lookup[OP_CLV] = (struct Instruction){"CLV", op_clv, addr_imp, 2};
 	lookup[OP_CLD] = (struct Instruction){"CLD", op_cld, addr_imp, 2};
 	lookup[OP_SED] = (struct Instruction){"SED", op_sed, addr_imp, 2};
+
+	lookup[OP_AND_IMM] = (struct Instruction){"AND", op_and, addr_imm, 2};
+	lookup[OP_AND_ZP0] = (struct Instruction){"AND", op_and, addr_zp0, 3};
+	lookup[OP_AND_ABS] = (struct Instruction){"AND", op_and, addr_abs, 4};
 }
 
 // initialize cpu state

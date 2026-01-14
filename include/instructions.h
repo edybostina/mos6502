@@ -40,6 +40,8 @@ byte op_sei(MOS6502 *cpu);
 byte op_clv(MOS6502 *cpu);
 byte op_cld(MOS6502 *cpu);
 byte op_sed(MOS6502 *cpu);
+byte op_and(MOS6502 *cpu);
+byte op_ora(MOS6502 *cpu);
 byte op_nop(MOS6502 *cpu);
 byte op_brk(MOS6502 *cpu);
 byte op_xxx(MOS6502 *cpu);	// :) illegal opcodes
@@ -50,4 +52,10 @@ byte addr_zp0(MOS6502 *cpu);  // zero page
 byte addr_abs(MOS6502 *cpu);  // absolute
 byte addr_rel(MOS6502 *cpu);  // relative
 byte addr_ind(MOS6502 *cpu);  // indirect
+byte addr_zp0x(MOS6502 *cpu);
+byte addr_zp0y(MOS6502 *cpu);
+byte addr_absx(MOS6502 *cpu);
+byte addr_absy(MOS6502 *cpu);
+byte addr_indx(MOS6502 *cpu);
+byte addr_indy(MOS6502 *cpu);
 #endif	// !__INSTRUCTIONS_H

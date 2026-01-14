@@ -6,9 +6,18 @@
 
 #define OP_LDA_IMM 0xA9
 #define OP_LDA_ZP0 0xA5
+#define OP_LDA_ZP0_X 0xB5
 #define OP_LDA_ABS 0xAD
+#define OP_LDA_ABS_X 0xBD
+#define OP_LDA_ABS_Y 0xB9
+#define OP_LDA_IND_X 0xA1
+#define OP_LDA_IND_Y 0xB1
 
 #define OP_LDX_IMM 0xA2
+#define OP_LDX_ZP0 0xA6
+#define OP_LDX_ZP0_Y 0xB6
+#define OP_LDX_ABS 0xAE
+#define OP_LDX_ABS_Y 0xBE
 
 #define OP_LDY_IMM 0xA0
 
@@ -53,4 +62,13 @@
 #define OP_CLV 0xB8
 #define OP_CLD 0xD8
 #define OP_SED 0xF8
+
+#define OP_AND_IMM 0x29
+#define OP_AND_ZP0 0x25
+#define OP_AND_ABS 0x2D
+
+#define OP_ORA_IMM 0x09
+#define OP_ORA_ZP0 0x05
+#define OP_ORA_ABS 0x0D
+
 #endif	// !__OPCODES_H

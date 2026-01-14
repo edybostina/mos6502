@@ -66,6 +66,85 @@ byte addr_abs(MOS6502 *cpu) {
 	return 0;
 }
 
+byte addr_zpx(MOS6502 *cpu) {
+	word addr = cpu_read(cpu, cpu->pc);
+	cpu->pc++;
+
+	addr = (addr + cpu->x) & 0x00FF;
+	cpu->addr_abs = addr;
+
+	return 0;
+}
+
+byte addr_zpy(MOS6502 *cpu) {
+	word addr = cpu_read(cpu, cpu->pc);
+	cpu->pc++;
+
+	addr = (addr + cpu->y) & 0x00FF;
+	cpu->addr_abs = addr;
+
+	return 0;
+}
+
+byte addr_absx(MOS6502 *cpu) {
+	word lo = cpu_read(cpu, cpu->pc);
+	cpu->pc++;
+	word hi = cpu_read(cpu, cpu->pc);
+	cpu->pc++;
+
+	word abs_addr = (hi << 8) | lo;
+	cpu->addr_abs = abs_addr + cpu->x;
+
+	if ((cpu->addr_abs & 0xFF00) != (hi << 8)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+byte addr_absy(MOS6502 *cpu) {
+	word lo = cpu_read(cpu, cpu->pc);
+	cpu->pc++;
+	word hi = cpu_read(cpu, cpu->pc);
+	cpu->pc++;
+
+	word abs_addr = (hi << 8) | lo;
+	cpu->addr_abs = abs_addr + cpu->y;
+
+	if ((cpu->addr_abs & 0xFF00) != (hi << 8)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+byte addr_izx(MOS6502 *cpu) {
+	word t = cpu_read(cpu, cpu->pc);
+	cpu->pc++;
+
+	word lo = cpu_read(cpu, (word)(t + (word)cpu->x) & 0x00FF);
+	word hi = cpu_read(cpu, (word)(t + (word)cpu->x + 1) & 0x00FF);
+
+	cpu->addr_abs = (hi << 8) | lo;
+	return 0;
+}
+
+byte addr_izy(MOS6502 *cpu) {
+	word t = cpu_read(cpu, cpu->pc);
+	cpu->pc++;
+
+	word lo = cpu_read(cpu, t & 0x00FF);
+	word hi = cpu_read(cpu, (t + 1) & 0x00FF);
+
+	word ptr_addr = (hi << 8) | lo;
+	cpu->addr_abs = ptr_addr + cpu->y;
+
+	if ((cpu->addr_abs & 0xFF00) != (hi << 8)) {
+		return 1;
+	}
+
+	return 0;
+}
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
 
@@ -265,6 +344,24 @@ byte op_cld(MOS6502 *cpu) {
 byte op_sed(MOS6502 *cpu) {
 	cpu->status |= FLAG_D;
 	return 0;
+}
+
+byte op_and(MOS6502 *cpu) {
+	fetch(cpu);
+
+	cpu->a &= cpu->fetched_data;
+
+	cpu_set_zn_flags(cpu, cpu->a);
+	return 1;
+}
+
+byte op_ora(MOS6502 *cpu) {
+	fetch(cpu);
+
+	cpu->a |= cpu->fetched_data;
+
+	cpu_set_zn_flags(cpu, cpu->a);
+	return 1;
 }
 
 byte op_nop(MOS6502 *cpu) {
