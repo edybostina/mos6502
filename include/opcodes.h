@@ -20,20 +20,31 @@
 #define OP_LDX_ABS_Y 0xBE
 
 #define OP_LDY_IMM 0xA0
+#define OP_LDY_ZP0 0xA4
+#define OP_LDY_ZP0_X 0xB4
+#define OP_LDY_ABS 0xAC
+#define OP_LDY_ABS_X 0xBC
 
 #define OP_PHP 0x08
 #define OP_PLP 0x28
 #define OP_PHA 0x48
 #define OP_PLA 0x68
 
-#define OP_STA_ABS 0x8D
 #define OP_STA_ZP0 0x85
+#define OP_STA_ZP0_X 0x95
+#define OP_STA_ABS 0x8D
+#define OP_STA_ABS_X 0x9D
+#define OP_STA_ABS_Y 0x99
+#define OP_STA_IND_X 0x81
+#define OP_STA_IND_Y 0x91
 
-#define OP_STX_ABS 0x8E
 #define OP_STX_ZP0 0x86
+#define OP_STX_ZP0_Y 0x96
+#define OP_STX_ABS 0x8E
 
-#define OP_STY_ABS 0x8C
 #define OP_STY_ZP0 0x84
+#define OP_STY_ZP0_X 0x94
+#define OP_STY_ABS 0x8C
 
 #define OP_JMP_ABS 0x4C
 #define OP_JMP_IND 0x6C

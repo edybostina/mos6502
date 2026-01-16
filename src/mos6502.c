@@ -28,20 +28,31 @@ void init_lookup_table() {
 	lookup[OP_LDX_ABS_Y] = (struct Instruction){"LDX", op_ldx, addr_absy, 4};
 
 	lookup[OP_LDY_IMM] = (struct Instruction){"LDY", op_ldy, addr_imm, 2};
+	lookup[OP_LDY_ZP0] = (struct Instruction){"LDY", op_ldy, addr_zp0, 3};
+	lookup[OP_LDY_ZP0_X] = (struct Instruction){"LDY", op_ldy, addr_zp0y, 4};
+	lookup[OP_LDY_ABS] = (struct Instruction){"LDY", op_ldy, addr_abs, 4};
+	lookup[OP_LDY_ABS_X] = (struct Instruction){"LDY", op_ldy, addr_absy, 4};
 
 	lookup[OP_PHP] = (struct Instruction){"PHP", op_php, addr_imp, 3};
 	lookup[OP_PLP] = (struct Instruction){"PLP", op_plp, addr_imp, 4};
 	lookup[OP_PHA] = (struct Instruction){"PHA", op_pha, addr_imp, 3};
 	lookup[OP_PLA] = (struct Instruction){"PLA", op_pla, addr_imp, 4};
 
-	lookup[OP_STA_ABS] = (struct Instruction){"STA", op_sta, addr_abs, 4};
 	lookup[OP_STA_ZP0] = (struct Instruction){"STA", op_sta, addr_zp0, 3};
+	lookup[OP_STA_ZP0_X] = (struct Instruction){"STA", op_sta, addr_zp0x, 4};
+	lookup[OP_STA_ABS] = (struct Instruction){"STA", op_sta, addr_abs, 4};
+	lookup[OP_STA_ABS_X] = (struct Instruction){"STA", op_sta, addr_absx, 5};
+	lookup[OP_STA_ABS_Y] = (struct Instruction){"STA", op_sta, addr_absy, 5};
+	lookup[OP_STA_IND_X] = (struct Instruction){"STA", op_sta, addr_indx, 6};
+	lookup[OP_STA_IND_Y] = (struct Instruction){"STA", op_sta, addr_indy, 6};
 
-	lookup[OP_STX_ABS] = (struct Instruction){"STX", op_stx, addr_abs, 4};
 	lookup[OP_STX_ZP0] = (struct Instruction){"STX", op_stx, addr_zp0, 3};
+	lookup[OP_STX_ZP0_Y] = (struct Instruction){"STX", op_stx, addr_zp0y, 4};
+	lookup[OP_STX_ABS] = (struct Instruction){"STX", op_stx, addr_abs, 4};
 
-	lookup[OP_STY_ABS] = (struct Instruction){"STY", op_sty, addr_abs, 4};
 	lookup[OP_STY_ZP0] = (struct Instruction){"STY", op_sty, addr_zp0, 3};
+	lookup[OP_STY_ZP0_X] = (struct Instruction){"STY", op_sty, addr_zp0x, 4};
+	lookup[OP_STY_ABS] = (struct Instruction){"STY", op_sty, addr_abs, 4};
 
 	lookup[OP_JMP_ABS] = (struct Instruction){"JMP", op_jmp, addr_abs, 3};
 	lookup[OP_JMP_IND] = (struct Instruction){"JMP", op_jmp, addr_ind, 5};
