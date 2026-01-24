@@ -12,17 +12,48 @@ struct Instruction {
 
 extern struct Instruction lookup[256];
 
+// access
 byte op_lda(MOS6502 *cpu);
-byte op_ldx(MOS6502 *cpu);
-byte op_ldy(MOS6502 *cpu);
-byte op_pha(MOS6502 *cpu);
-byte op_pla(MOS6502 *cpu);
-byte op_php(MOS6502 *cpu);
-byte op_plp(MOS6502 *cpu);
 byte op_sta(MOS6502 *cpu);
+byte op_ldx(MOS6502 *cpu);
 byte op_stx(MOS6502 *cpu);
+byte op_ldy(MOS6502 *cpu);
 byte op_sty(MOS6502 *cpu);
-byte op_jmp(MOS6502 *cpu);
+
+// transfer
+byte op_tax(MOS6502 *cpu);
+byte op_txa(MOS6502 *cpu);
+byte op_tay(MOS6502 *cpu);
+byte op_tya(MOS6502 *cpu);
+
+// arithmetic
+byte op_adc(MOS6502 *cpu);
+byte op_sbc(MOS6502 *cpu);
+byte op_inc(MOS6502 *cpu);
+byte op_dec(MOS6502 *cpu);
+byte op_inx(MOS6502 *cpu);
+byte op_dex(MOS6502 *cpu);
+byte op_iny(MOS6502 *cpu);
+byte op_dey(MOS6502 *cpu);
+
+// shift
+byte op_asl(MOS6502 *cpu);
+byte op_lsr(MOS6502 *cpu);
+byte op_rol(MOS6502 *cpu);
+byte op_ror(MOS6502 *cpu);
+
+// bitwise
+byte op_and(MOS6502 *cpu);
+byte op_ora(MOS6502 *cpu);
+byte op_eor(MOS6502 *cpu);
+byte op_bit(MOS6502 *cpu);
+
+// compare
+byte op_cmp(MOS6502 *cpu);
+byte op_cpx(MOS6502 *cpu);
+byte op_cpy(MOS6502 *cpu);
+
+// branch
 byte op_bpl(MOS6502 *cpu);
 byte op_bmi(MOS6502 *cpu);
 byte op_bvc(MOS6502 *cpu);
@@ -31,8 +62,23 @@ byte op_bcc(MOS6502 *cpu);
 byte op_bcs(MOS6502 *cpu);
 byte op_bne(MOS6502 *cpu);
 byte op_beq(MOS6502 *cpu);
-byte op_adc(MOS6502 *cpu);
-byte op_sbc(MOS6502 *cpu);
+
+// jump
+byte op_jmp(MOS6502 *cpu);
+byte op_jsr(MOS6502 *cpu);
+byte op_rts(MOS6502 *cpu);
+byte op_brk(MOS6502 *cpu);
+byte op_rti(MOS6502 *cpu);
+
+// stack
+byte op_pha(MOS6502 *cpu);
+byte op_pla(MOS6502 *cpu);
+byte op_php(MOS6502 *cpu);
+byte op_plp(MOS6502 *cpu);
+byte op_tsx(MOS6502 *cpu);
+byte op_txs(MOS6502 *cpu);
+
+// flags
 byte op_clc(MOS6502 *cpu);
 byte op_sec(MOS6502 *cpu);
 byte op_cli(MOS6502 *cpu);
@@ -40,28 +86,8 @@ byte op_sei(MOS6502 *cpu);
 byte op_clv(MOS6502 *cpu);
 byte op_cld(MOS6502 *cpu);
 byte op_sed(MOS6502 *cpu);
-byte op_and(MOS6502 *cpu);
-byte op_ora(MOS6502 *cpu);
-byte op_eor(MOS6502 *cpu);
-byte op_asl(MOS6502 *cpu);
-byte op_lsr(MOS6502 *cpu);
-byte op_rol(MOS6502 *cpu);
-byte op_ror(MOS6502 *cpu);
-byte op_cmp(MOS6502 *cpu);
-byte op_cpx(MOS6502 *cpu);
-byte op_cpy(MOS6502 *cpu);
-byte op_inc(MOS6502 *cpu);
-byte op_dec(MOS6502 *cpu);
-byte op_inx(MOS6502 *cpu);
-byte op_dex(MOS6502 *cpu);
-byte op_iny(MOS6502 *cpu);
-byte op_jsr(MOS6502 *cpu);
-byte op_rts(MOS6502 *cpu);
-byte op_rti(MOS6502 *cpu);
-byte op_dey(MOS6502 *cpu);
-byte op_bit(MOS6502 *cpu);
+
 byte op_nop(MOS6502 *cpu);
-byte op_brk(MOS6502 *cpu);
 byte op_xxx(MOS6502 *cpu);	// :) illegal opcodes
 
 byte addr_imp(MOS6502 *cpu);  // implied

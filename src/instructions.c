@@ -584,6 +584,41 @@ byte op_bit(MOS6502 *cpu) {
 	return 0;
 }
 
+byte op_tax(MOS6502 *cpu) {
+	cpu->x = cpu->a;
+	cpu_set_zn_flags(cpu, cpu->x);
+	return 0;
+}
+
+byte op_txa(MOS6502 *cpu) {
+	cpu->a = cpu->x;
+	cpu_set_zn_flags(cpu, cpu->a);
+	return 0;
+}
+
+byte op_tsx(MOS6502 *cpu) {
+	cpu->x = cpu->sp;
+	cpu_set_zn_flags(cpu, cpu->x);
+	return 0;
+}
+
+byte op_txs(MOS6502 *cpu) {
+	cpu->sp = cpu->x;
+	return 0;
+}
+
+byte op_tay(MOS6502 *cpu) {
+	cpu->y = cpu->a;
+	cpu_set_zn_flags(cpu, cpu->y);
+	return 0;
+}
+
+byte op_tya(MOS6502 *cpu) {
+	cpu->a = cpu->y;
+	cpu_set_zn_flags(cpu, cpu->a);
+	return 0;
+}
+
 byte op_nop(MOS6502 *cpu) {
 	(void)cpu;
 	return 0;
