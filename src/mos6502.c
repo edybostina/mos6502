@@ -174,6 +174,13 @@ void init_lookup_table() {
 	lookup[OP_DEX] = (struct Instruction){"DEX", op_dex, addr_imp, 2};
 	lookup[OP_INY] = (struct Instruction){"INY", op_iny, addr_imp, 2};
 	lookup[OP_DEY] = (struct Instruction){"DEY", op_dey, addr_imp, 2};
+
+	lookup[OP_JSR] = (struct Instruction){"JSR", op_jsr, addr_abs, 6};
+	lookup[OP_RTS] = (struct Instruction){"RTS", op_rts, addr_imp, 6};
+	lookup[OP_RTI] = (struct Instruction){"RTI", op_rti, addr_imp, 6};
+
+	lookup[OP_BIT_ZP0] = (struct Instruction){"BIT", op_bit, addr_zp0, 3};
+	lookup[OP_BIT_ABS] = (struct Instruction){"BIT", op_bit, addr_abs, 4};
 }
 
 // initialize cpu state

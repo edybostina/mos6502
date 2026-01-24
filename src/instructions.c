@@ -524,6 +524,66 @@ byte op_dey(MOS6502 *cpu) {
 	return 0;
 }
 
+byte op_jsr(MOS6502 *cpu) {
+	word temp = cpu->pc - 1;
+	cpu_write(cpu, STACK_BASE_ADDR + cpu->sp, (temp >> 8) & 0x00FF);
+	cpu->sp--;
+
+	cpu->pc = cpu->addr_abs;
+	return 0;
+}
+
+byte op_rts(MOS6502 *cpu) {
+	cpu->sp++;
+	word lo = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
+
+	cpu->sp++;
+	word hi = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
+
+	cpu->pc = ((hi << 8) | lo) + 1;
+
+	return 0;
+}
+
+byte op_rti(MOS6502 *cpu) {
+	cpu->sp++;
+	cpu->status = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
+
+	cpu->status &= ~FLAG_B;
+	cpu->status |= FLAG_U;
+
+	cpu->sp++;
+	word lo = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
+
+	cpu->sp++;
+	word hi = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
+
+	cpu->pc = ((hi << 8) | lo) + 1;
+
+	return 0;
+}
+byte op_bit(MOS6502 *cpu) {
+	fetch(cpu);
+	word temp = cpu->a & cpu->fetched_data;
+
+	if ((temp & 0x00FF) == 0)
+		cpu->status |= FLAG_Z;
+	else
+		cpu->status &= ~FLAG_Z;
+
+	if (cpu->fetched_data & (1 << 7))
+		cpu->status |= FLAG_N;
+	else
+		cpu->status &= ~FLAG_N;
+
+	if (cpu->fetched_data & (1 << 6))
+		cpu->status |= FLAG_V;
+	else
+		cpu->status &= ~FLAG_V;
+
+	return 0;
+}
+
 byte op_nop(MOS6502 *cpu) {
 	(void)cpu;
 	return 0;

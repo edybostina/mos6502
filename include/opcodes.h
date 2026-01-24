@@ -167,4 +167,10 @@
 #define OP_INY 0xC8
 #define OP_DEY 0x88
 
+#define OP_JSR 0x20
+#define OP_RTS 0x60
+#define OP_RTI 0x40
+
+#define OP_BIT_ZP0 0x24
+#define OP_BIT_ABS 0x2C
 #endif	// !__OPCODES_H
