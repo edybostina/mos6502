@@ -135,4 +135,36 @@
 #define OP_ROR_ABS 0x6E
 #define OP_ROR_ABS_X 0x7E
 
+#define OP_CMP_IMM 0xC9
+#define OP_CMP_ZP0 0xC5
+#define OP_CMP_ZP0_X 0xD5
+#define OP_CMP_ABS 0xCD
+#define OP_CMP_ABS_X 0xDD
+#define OP_CMP_ABS_Y 0xD9
+#define OP_CMP_IND_X 0xC1
+#define OP_CMP_IND_Y 0xD1
+
+#define OP_CPX_IMM 0xE0
+#define OP_CPX_ZP0 0xE4
+#define OP_CPX_ABS 0xEC
+
+#define OP_CPY_IMM 0xC0
+#define OP_CPY_ZP0 0xC4
+#define OP_CPY_ABS 0xCC
+
+#define OP_INC_ZP0 0xE6
+#define OP_INC_ZP0_X 0xF6
+#define OP_INC_ABS 0xEE
+#define OP_INC_ABS_X 0xFE
+
+#define OP_DEC_ZP0 0xC6
+#define OP_DEC_ZP0_X 0xD6
+#define OP_DEC_ABS 0xCE
+#define OP_DEC_ABS_X 0xDE
+
+#define OP_INX 0xE8
+#define OP_DEX 0xCA
+#define OP_INY 0xC8
+#define OP_DEY 0x88
+
 #endif	// !__OPCODES_H

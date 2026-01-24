@@ -445,6 +445,85 @@ byte op_ror(MOS6502 *cpu) {
 	return 0;
 }
 
+byte op_cmp(MOS6502 *cpu) {
+	fetch(cpu);
+	word temp = (word)cpu->a - (word)cpu->fetched_data;
+
+	if (cpu->a >= cpu->fetched_data)
+		cpu->status |= FLAG_C;
+	else
+		cpu->status &= ~FLAG_C;
+
+	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	return 1;
+}
+
+byte op_cpx(MOS6502 *cpu) {
+	fetch(cpu);
+	word temp = (word)cpu->x - (word)cpu->fetched_data;
+
+	if (cpu->x >= cpu->fetched_data)
+		cpu->status |= FLAG_C;
+	else
+		cpu->status &= ~FLAG_C;
+
+	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	return 0;
+}
+
+byte op_cpy(MOS6502 *cpu) {
+	fetch(cpu);
+	word temp = (word)cpu->y - (word)cpu->fetched_data;
+
+	if (cpu->y >= cpu->fetched_data)
+		cpu->status |= FLAG_C;
+	else
+		cpu->status &= ~FLAG_C;
+
+	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	return 0;
+}
+
+byte op_inc(MOS6502 *cpu) {
+	fetch(cpu);
+	word temp = cpu->fetched_data + 1;
+	cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	return 0;
+}
+
+byte op_dec(MOS6502 *cpu) {
+	fetch(cpu);
+	word temp = cpu->fetched_data - 1;
+	cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	return 0;
+}
+
+byte op_inx(MOS6502 *cpu) {
+	cpu->x++;
+	cpu_set_zn_flags(cpu, cpu->x);
+	return 0;
+}
+
+byte op_dex(MOS6502 *cpu) {
+	cpu->x--;
+	cpu_set_zn_flags(cpu, cpu->x);
+	return 0;
+}
+
+byte op_iny(MOS6502 *cpu) {
+	cpu->y++;
+	cpu_set_zn_flags(cpu, cpu->y);
+	return 0;
+}
+
+byte op_dey(MOS6502 *cpu) {
+	cpu->y--;
+	cpu_set_zn_flags(cpu, cpu->y);
+	return 0;
+}
+
 byte op_nop(MOS6502 *cpu) {
 	(void)cpu;
 	return 0;

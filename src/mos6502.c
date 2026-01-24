@@ -142,6 +142,38 @@ void init_lookup_table() {
 	lookup[OP_ROR_ZP0_X] = (struct Instruction){"ROR", op_ror, addr_zp0x, 6};
 	lookup[OP_ROR_ABS] = (struct Instruction){"ROR", op_ror, addr_abs, 6};
 	lookup[OP_ROR_ABS_X] = (struct Instruction){"ROR", op_ror, addr_absx, 7};
+
+	lookup[OP_CMP_IMM] = (struct Instruction){"CMP", op_cmp, addr_imm, 2};
+	lookup[OP_CMP_ZP0] = (struct Instruction){"CMP", op_cmp, addr_zp0, 3};
+	lookup[OP_CMP_ZP0_X] = (struct Instruction){"CMP", op_cmp, addr_zp0x, 4};
+	lookup[OP_CMP_ABS] = (struct Instruction){"CMP", op_cmp, addr_abs, 4};
+	lookup[OP_CMP_ABS_X] = (struct Instruction){"CMP", op_cmp, addr_absx, 4};
+	lookup[OP_CMP_ABS_Y] = (struct Instruction){"CMP", op_cmp, addr_absy, 4};
+	lookup[OP_CMP_IND_X] = (struct Instruction){"CMP", op_cmp, addr_indx, 6};
+	lookup[OP_CMP_IND_Y] = (struct Instruction){"CMP", op_cmp, addr_indy, 5};
+
+	lookup[OP_CPX_IMM] = (struct Instruction){"CPX", op_cpx, addr_imm, 2};
+	lookup[OP_CPX_ZP0] = (struct Instruction){"CPX", op_cpx, addr_zp0, 3};
+	lookup[OP_CPX_ABS] = (struct Instruction){"CPX", op_cpx, addr_abs, 4};
+
+	lookup[OP_CPY_IMM] = (struct Instruction){"CPY", op_cpy, addr_imm, 2};
+	lookup[OP_CPY_ZP0] = (struct Instruction){"CPY", op_cpy, addr_zp0, 3};
+	lookup[OP_CPY_ABS] = (struct Instruction){"CPY", op_cpy, addr_abs, 4};
+
+	lookup[OP_INC_ZP0] = (struct Instruction){"INC", op_inc, addr_zp0, 5};
+	lookup[OP_INC_ZP0_X] = (struct Instruction){"INC", op_inc, addr_zp0x, 6};
+	lookup[OP_INC_ABS] = (struct Instruction){"INC", op_inc, addr_abs, 6};
+	lookup[OP_INC_ABS_X] = (struct Instruction){"INC", op_inc, addr_absx, 7};
+
+	lookup[OP_DEC_ZP0] = (struct Instruction){"DEC", op_dec, addr_zp0, 5};
+	lookup[OP_DEC_ZP0_X] = (struct Instruction){"DEC", op_dec, addr_zp0x, 6};
+	lookup[OP_DEC_ABS] = (struct Instruction){"DEC", op_dec, addr_abs, 6};
+	lookup[OP_DEC_ABS_X] = (struct Instruction){"DEC", op_dec, addr_absx, 7};
+
+	lookup[OP_INX] = (struct Instruction){"INX", op_inx, addr_imp, 2};
+	lookup[OP_DEX] = (struct Instruction){"DEX", op_dex, addr_imp, 2};
+	lookup[OP_INY] = (struct Instruction){"INY", op_iny, addr_imp, 2};
+	lookup[OP_DEY] = (struct Instruction){"DEY", op_dey, addr_imp, 2};
 }
 
 // initialize cpu state
