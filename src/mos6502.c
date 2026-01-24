@@ -68,11 +68,21 @@ void init_lookup_table() {
 
 	lookup[OP_ADC_IMM] = (struct Instruction){"ADC", op_adc, addr_imm, 2};
 	lookup[OP_ADC_ZP0] = (struct Instruction){"ADC", op_adc, addr_zp0, 3};
+	lookup[OP_ADC_ZP0_X] = (struct Instruction){"ADC", op_adc, addr_zp0x, 4};
 	lookup[OP_ADC_ABS] = (struct Instruction){"ADC", op_adc, addr_abs, 4};
+	lookup[OP_ADC_ABS_X] = (struct Instruction){"ADC", op_adc, addr_absx, 4};
+	lookup[OP_ADC_ABS_Y] = (struct Instruction){"ADC", op_adc, addr_absx, 4};
+	lookup[OP_ADC_IND_X] = (struct Instruction){"ADC", op_adc, addr_indx, 6};
+	lookup[OP_ADC_IND_Y] = (struct Instruction){"ADC", op_adc, addr_indy, 5};
 
 	lookup[OP_SBC_IMM] = (struct Instruction){"SBC", op_sbc, addr_imm, 2};
 	lookup[OP_SBC_ZP0] = (struct Instruction){"SBC", op_sbc, addr_zp0, 3};
+	lookup[OP_SBC_ZP0_X] = (struct Instruction){"SBC", op_sbc, addr_zp0x, 4};
 	lookup[OP_SBC_ABS] = (struct Instruction){"SBC", op_sbc, addr_abs, 4};
+	lookup[OP_SBC_ABS_X] = (struct Instruction){"SBC", op_sbc, addr_absx, 4};
+	lookup[OP_SBC_ABS_Y] = (struct Instruction){"SBC", op_sbc, addr_absy, 4};
+	lookup[OP_SBC_IND_X] = (struct Instruction){"SBC", op_sbc, addr_indx, 6};
+	lookup[OP_SBC_IND_Y] = (struct Instruction){"SBC", op_sbc, addr_indy, 5};
 
 	lookup[OP_CLC] = (struct Instruction){"CLC", op_clc, addr_imp, 2};
 	lookup[OP_SEC] = (struct Instruction){"SEC", op_sec, addr_imp, 2};
@@ -84,7 +94,54 @@ void init_lookup_table() {
 
 	lookup[OP_AND_IMM] = (struct Instruction){"AND", op_and, addr_imm, 2};
 	lookup[OP_AND_ZP0] = (struct Instruction){"AND", op_and, addr_zp0, 3};
+	lookup[OP_AND_ZP0_X] = (struct Instruction){"AND", op_and, addr_zp0x, 4};
 	lookup[OP_AND_ABS] = (struct Instruction){"AND", op_and, addr_abs, 4};
+	lookup[OP_AND_ABS_X] = (struct Instruction){"AND", op_and, addr_absx, 4};
+	lookup[OP_AND_ABS_Y] = (struct Instruction){"AND", op_and, addr_absy, 4};
+	lookup[OP_AND_IND_X] = (struct Instruction){"AND", op_and, addr_indx, 6};
+	lookup[OP_AND_IND_Y] = (struct Instruction){"AND", op_and, addr_indy, 5};
+
+	lookup[OP_ORA_IMM] = (struct Instruction){"ORA", op_ora, addr_imm, 2};
+	lookup[OP_ORA_ZP0] = (struct Instruction){"ORA", op_ora, addr_zp0, 3};
+	lookup[OP_ORA_ZP0_X] = (struct Instruction){"ORA", op_ora, addr_zp0x, 4};
+	lookup[OP_ORA_ABS] = (struct Instruction){"ORA", op_ora, addr_abs, 4};
+	lookup[OP_ORA_ABS_X] = (struct Instruction){"ORA", op_ora, addr_absx, 4};
+	lookup[OP_ORA_ABS_Y] = (struct Instruction){"ORA", op_ora, addr_absy, 4};
+	lookup[OP_ORA_IND_X] = (struct Instruction){"ORA", op_ora, addr_indx, 6};
+	lookup[OP_ORA_IND_Y] = (struct Instruction){"ORA", op_ora, addr_indy, 5};
+
+	lookup[OP_EOR_IMM] = (struct Instruction){"EOR", op_eor, addr_imm, 2};
+	lookup[OP_EOR_ZP0] = (struct Instruction){"EOR", op_eor, addr_zp0, 3};
+	lookup[OP_EOR_ZP0_X] = (struct Instruction){"EOR", op_eor, addr_zp0x, 4};
+	lookup[OP_EOR_ABS] = (struct Instruction){"EOR", op_eor, addr_abs, 4};
+	lookup[OP_EOR_ABS_X] = (struct Instruction){"EOR", op_eor, addr_absx, 4};
+	lookup[OP_EOR_ABS_Y] = (struct Instruction){"EOR", op_eor, addr_absy, 4};
+	lookup[OP_EOR_IND_X] = (struct Instruction){"EOR", op_eor, addr_indx, 6};
+	lookup[OP_EOR_IND_Y] = (struct Instruction){"EOR", op_eor, addr_indy, 5};
+
+	lookup[OP_ASL_ACC] = (struct Instruction){"ASL", op_asl, addr_imp, 2};
+	lookup[OP_ASL_ZP0] = (struct Instruction){"ASL", op_asl, addr_zp0, 5};
+	lookup[OP_ASL_ZP0_X] = (struct Instruction){"ASL", op_asl, addr_zp0x, 6};
+	lookup[OP_ASL_ABS] = (struct Instruction){"ASL", op_asl, addr_abs, 6};
+	lookup[OP_ASL_ABS_X] = (struct Instruction){"ASL", op_asl, addr_absx, 7};
+
+	lookup[OP_LSR_ACC] = (struct Instruction){"LSR", op_lsr, addr_imp, 2};
+	lookup[OP_LSR_ZP0] = (struct Instruction){"LSR", op_lsr, addr_zp0, 5};
+	lookup[OP_LSR_ZP0_X] = (struct Instruction){"LSR", op_lsr, addr_zp0x, 6};
+	lookup[OP_LSR_ABS] = (struct Instruction){"LSR", op_lsr, addr_abs, 6};
+	lookup[OP_LSR_ABS_X] = (struct Instruction){"LSR", op_lsr, addr_absx, 7};
+
+	lookup[OP_ROL_ACC] = (struct Instruction){"ROL", op_rol, addr_imp, 2};
+	lookup[OP_ROL_ZP0] = (struct Instruction){"ROL", op_rol, addr_zp0, 5};
+	lookup[OP_ROL_ZP0_X] = (struct Instruction){"ROL", op_rol, addr_zp0x, 6};
+	lookup[OP_ROL_ABS] = (struct Instruction){"ROL", op_rol, addr_abs, 6};
+	lookup[OP_ROL_ABS_X] = (struct Instruction){"ROL", op_rol, addr_absx, 7};
+
+	lookup[OP_ROR_ACC] = (struct Instruction){"ROR", op_ror, addr_imp, 2};
+	lookup[OP_ROR_ZP0] = (struct Instruction){"ROR", op_ror, addr_zp0, 5};
+	lookup[OP_ROR_ZP0_X] = (struct Instruction){"ROR", op_ror, addr_zp0x, 6};
+	lookup[OP_ROR_ABS] = (struct Instruction){"ROR", op_ror, addr_abs, 6};
+	lookup[OP_ROR_ABS_X] = (struct Instruction){"ROR", op_ror, addr_absx, 7};
 }
 
 // initialize cpu state

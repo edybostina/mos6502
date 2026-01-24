@@ -66,7 +66,7 @@ byte addr_abs(MOS6502 *cpu) {
 	return 0;
 }
 
-byte addr_zpx(MOS6502 *cpu) {
+byte addr_zp0x(MOS6502 *cpu) {
 	word addr = cpu_read(cpu, cpu->pc);
 	cpu->pc++;
 
@@ -76,7 +76,7 @@ byte addr_zpx(MOS6502 *cpu) {
 	return 0;
 }
 
-byte addr_zpy(MOS6502 *cpu) {
+byte addr_zp0y(MOS6502 *cpu) {
 	word addr = cpu_read(cpu, cpu->pc);
 	cpu->pc++;
 
@@ -118,7 +118,7 @@ byte addr_absy(MOS6502 *cpu) {
 	return 0;
 }
 
-byte addr_izx(MOS6502 *cpu) {
+byte addr_indx(MOS6502 *cpu) {
 	word t = cpu_read(cpu, cpu->pc);
 	cpu->pc++;
 
@@ -129,7 +129,7 @@ byte addr_izx(MOS6502 *cpu) {
 	return 0;
 }
 
-byte addr_izy(MOS6502 *cpu) {
+byte addr_indy(MOS6502 *cpu) {
 	word t = cpu_read(cpu, cpu->pc);
 	cpu->pc++;
 
@@ -362,6 +362,87 @@ byte op_ora(MOS6502 *cpu) {
 
 	cpu_set_zn_flags(cpu, cpu->a);
 	return 1;
+}
+
+byte op_eor(MOS6502 *cpu) {
+	fetch(cpu);
+
+	cpu->a ^= cpu->fetched_data;
+
+	cpu_set_zn_flags(cpu, cpu->a);
+	return 1;
+}
+
+byte op_asl(MOS6502 *cpu) {
+	fetch(cpu);
+	word temp = (word)cpu->fetched_data << 1;
+
+	if (temp & 0xFF00)
+		cpu->status |= FLAG_C;
+	else
+		cpu->status &= ~FLAG_C;
+
+	if (lookup[cpu->opcode].mode == addr_imp)
+		cpu->a = temp & 0x00FF;
+	else
+		cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+
+	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	return 0;
+}
+
+byte op_lsr(MOS6502 *cpu) {
+	fetch(cpu);
+	if (cpu->fetched_data & 0x0001)
+		cpu->status |= FLAG_C;
+	else
+		cpu->status &= ~FLAG_C;
+
+	word temp = cpu->fetched_data >> 1;
+
+	if (lookup[cpu->opcode].mode == addr_imp)
+		cpu->a = temp & 0x00FF;
+	else
+		cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+
+	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	return 0;
+}
+
+byte op_rol(MOS6502 *cpu) {
+	fetch(cpu);
+	word temp = (word)(cpu->fetched_data << 1) | (cpu->status & FLAG_C ? 1 : 0);
+
+	if (temp & 0xFF00)
+		cpu->status |= FLAG_C;
+	else
+		cpu->status &= ~FLAG_C;
+
+	if (lookup[cpu->opcode].mode == addr_imp)
+		cpu->a = temp & 0x00FF;
+	else
+		cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+
+	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	return 0;
+}
+
+byte op_ror(MOS6502 *cpu) {
+	fetch(cpu);
+	word temp = (word)(cpu->fetched_data >> 1) | (cpu->status & FLAG_C ? 128 : 0);
+
+	if (temp & 0x01)
+		cpu->status |= FLAG_C;
+	else
+		cpu->status &= ~FLAG_C;
+
+	if (lookup[cpu->opcode].mode == addr_imp)
+		cpu->a = temp & 0x00FF;
+	else
+		cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+
+	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	return 0;
 }
 
 byte op_nop(MOS6502 *cpu) {

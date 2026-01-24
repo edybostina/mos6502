@@ -42,6 +42,11 @@ byte op_cld(MOS6502 *cpu);
 byte op_sed(MOS6502 *cpu);
 byte op_and(MOS6502 *cpu);
 byte op_ora(MOS6502 *cpu);
+byte op_eor(MOS6502 *cpu);
+byte op_asl(MOS6502 *cpu);
+byte op_lsr(MOS6502 *cpu);
+byte op_rol(MOS6502 *cpu);
+byte op_ror(MOS6502 *cpu);
 byte op_nop(MOS6502 *cpu);
 byte op_brk(MOS6502 *cpu);
 byte op_xxx(MOS6502 *cpu);	// :) illegal opcodes
