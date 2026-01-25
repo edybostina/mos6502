@@ -1,2 +1,5 @@
 build
 my_program
+.history/
+.vscode/
+.DS_Store

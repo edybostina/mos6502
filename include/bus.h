@@ -22,11 +22,12 @@ typedef uint8_t byte;
 typedef uint16_t word;
 
 typedef struct {
-	byte ram[2048];
+	byte memory[65536];
 } Bus;
 
 void bus_init(Bus *bus);
 void bus_write(Bus *bus, word addr, byte data);
 byte bus_read(Bus *bus, word addr, int read_only);
+void bus_load_data(Bus *bus, word addr, byte *data, int size);
 
 #endif	// __BUS_H

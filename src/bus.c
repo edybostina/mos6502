@@ -1,34 +1,28 @@
 #include "../include/bus.h"
 #include <stdio.h>
+#include <string.h>
 
 void bus_init(Bus *bus) {
-	for (int i = 0; i < 2048; i++) {
-		bus->ram[i] = 0;
-	}
+	memset(bus->memory, 0, 65536);
 }
-void bus_write(Bus *bus, uint16_t addr, uint8_t data) {
-	if (addr >= ADDR_RAM_START && addr <= ADDR_RAM_END) {
-		bus->ram[addr & ADDR_RAM_MIRROR] = data;
-	} else if (addr >= ADDR_PPU_START && addr <= ADDR_PPU_END) {
-		// ppu_write(addr & ADDR_PPU_MIRROR, data);
-		printf("PPU Write: 0x%04X\n", addr);
-	} else if (addr >= ADDR_APU_START && addr <= ADDR_APU_END) {
-		printf("APU Write: 0x%04X\n", addr);
-	} else if (addr >= ADDR_CART_START && addr <= ADDR_CART_END) {
-		// cart_write(addr, data);
+
+void bus_write(Bus *bus, word addr, byte data) {
+	if (addr == 0xFF00) {
+		printf("%c", data);
+		return;
+	}
+
+	if (addr < 0x8000) {
+		bus->memory[addr] = data;
 	}
 }
 
-uint8_t bus_read(Bus *bus, uint16_t addr, int read_only) {
-	uint8_t data = 0;
+byte bus_read(Bus *bus, word addr, int read_only) {
+	return bus->memory[addr];
+}
 
-	if (addr >= ADDR_RAM_START && addr <= ADDR_RAM_END) {
-		data = bus->ram[addr & ADDR_RAM_MIRROR];
-	} else if (addr >= ADDR_PPU_START && addr <= ADDR_PPU_END) {
-		// data = ppu_read(addr & ADDR_PPU_MIRROR);
-	} else if (addr >= ADDR_CART_START && addr <= ADDR_CART_END) {
-		// data = cart_read(addr);
+void bus_load_data(Bus *bus, word addr, byte *data, int size) {
+	for (int i = 0; i < size; i++) {
+		bus->memory[addr + i] = data[i];
 	}
-
-	return data;
 }

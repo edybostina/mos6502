@@ -272,7 +272,5 @@ void cpu_execute(MOS6502 *cpu, int cycles) {
 		cpu->cycles += (additional_cycle1 & additional_cycle2);
 
 		remaining_cycles -= cpu->cycles;
-
-		printf("%s $%04X\n", lookup[cpu->opcode].name, cpu->fetched_data);
 	}
 }
