@@ -224,26 +224,25 @@ void cpu_reset(MOS6502 *cpu) {
 	cpu->cycles = 0;
 }
 
+void cpu_connect_bus(MOS6502 *cpu, Bus *bus) {
+	cpu->bus = bus;
+}
+
 // read a byte from memory
 byte cpu_read(MOS6502 *cpu, word addr) {
-	// TODO: add memory mapping logic.
-	// if (addr >= 0x2000 && addr < 0x4000) return read_ppu_register(); etc etc...
-	return cpu->memory[addr];
+	return bus_read(cpu->bus, addr, 0);
 }
 
 // read a word from memory
 word cpu_read_word(MOS6502 *cpu, word addr) {
-	byte low = cpu_read(cpu, addr);
-	byte high = cpu_read(cpu, addr + 1);
-
-	return (high << 8) | low;
+	word lo = bus_read(cpu->bus, addr, 0);
+	word hi = bus_read(cpu->bus, addr + 1, 0);
+	return (hi << 8) | lo;
 }
 
 // write a byte to memory
 void cpu_write(MOS6502 *cpu, word addr, byte data) {
-	// TODO: add special addrs too:
-	// ex: if (addr == 0x4016) handle_controller_input(data);
-	cpu->memory[addr] = data;
+	bus_write(cpu->bus, addr, data);
 }
 
 // set zero and negative flags based on a result;

@@ -4,13 +4,15 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include "bus.h"
 
 typedef uint8_t byte;
 typedef uint16_t word;
 
 #define MEM_SIZE 64 * 1024	// 64kb
 #define STACK_BASE_ADDR 0x0100
-typedef struct {
+
+typedef struct MOS6502 {
 	word pc;  // program counter 16 bit
 	byte sp;  // stack pointer 8 bit
 
@@ -22,8 +24,7 @@ typedef struct {
 	// zero, negative, carry etc.
 	byte status;
 
-	// TODO: move this in the near future to a special class
-	byte memory[MEM_SIZE];
+	Bus *bus;
 
 	byte fetched_data;	// val read from memory
 	word addr_abs;	// location of that val
@@ -43,6 +44,9 @@ typedef enum {
 	FLAG_N = (1 << 7),	// negative
 
 } StatusFlag;
+
+// connect bus memory
+void cpu_connect_bus(MOS6502 *cpu, Bus *bus);
 
 // initialize cpu state
 void cpu_reset(MOS6502 *cpu);

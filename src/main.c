@@ -1,28 +1,30 @@
 #include "../include/mos6502.h"
-#include "../include/opcodes.h"
+#include "../include/bus.h"
 #include <stdio.h>
 
 int main() {
+	// 1. Instantiate Components
 	MOS6502 cpu;
+	Bus bus;
 
-	cpu_write(&cpu, 0xFFFC, 0x00);
-	cpu_write(&cpu, 0xFFFD, 0x80);
+	// 2. Initialize Bus
+	bus_init(&bus);
+
+	// 3. Connect Components
+	cpu_connect_bus(&cpu, &bus);
+
+	// 4. Reset CPU
 	cpu_reset(&cpu);
 
-	cpu_write(&cpu, 0x8000, OP_SEC);
+	// 5. Test Write/Read via Bus
+	// Write 0x55 to address 0x0010 (RAM)
+	cpu_write(&cpu, 0x0010, 0x55);
 
-	// 2. LDA #10
-	cpu_write(&cpu, 0x8001, OP_LDA_IMM);
-	cpu_write(&cpu, 0x8002, 10);
+	// Read it back
+	// Remember: 0x0810 mirrors 0x0010 on this architecture!
+	uint8_t val = cpu_read(&cpu, 0x0810);
 
-	// 3. SBC #5
-	cpu_write(&cpu, 0x8003, OP_SBC_IMM);
-	cpu_write(&cpu, 0x8004, 5);
+	printf("Written to 0x0010, Read from 0x0810: 0x%02X\n", val);
 
-	// 4. BRK
-	cpu_write(&cpu, 0x8005, OP_BRK);
-
-	cpu_execute(&cpu, 15);
-	printf("10 - 5 = %d\n", cpu.a);
 	return 0;
 }
