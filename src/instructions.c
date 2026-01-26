@@ -7,9 +7,8 @@ byte fetch(MOS6502 *cpu) {
 	return cpu->fetched_data;
 }
 
-void branch(MOS6502 *cpu) {
+static inline void branch(MOS6502 *cpu) {
 	cpu->cycles++;
-
 	cpu->addr_abs = cpu->pc + cpu->addr_rel;
 
 	if ((cpu->addr_abs & 0xFF00) != (cpu->pc & 0xFF00))
@@ -170,31 +169,23 @@ byte op_ldy(MOS6502 *cpu) {
 }
 
 byte op_pha(MOS6502 *cpu) {
-	cpu_write(cpu, STACK_BASE_ADDR + cpu->sp, cpu->a);
-	cpu->sp--;
+	cpu_push(cpu, cpu->a);
 	return 0;
 }
 
 byte op_pla(MOS6502 *cpu) {
-	cpu->sp++;
-	cpu->a = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
-
+	cpu->a = cpu_pop(cpu);
 	cpu_set_zn_flags(cpu, cpu->a);
 	return 0;
 }
 
 byte op_php(MOS6502 *cpu) {
-	cpu_write(cpu, STACK_BASE_ADDR + cpu->sp, cpu->status | FLAG_B | FLAG_U);
-	cpu->sp--;
+	cpu_push(cpu, cpu->status | FLAG_B | FLAG_U);
 	return 0;
 }
 
 byte op_plp(MOS6502 *cpu) {
-	cpu->sp++;
-	cpu->status = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
-
-	cpu->status |= FLAG_U;
-
+	cpu->status = cpu_pop(cpu) | FLAG_U;
 	return 0;
 }
 
@@ -219,49 +210,49 @@ byte op_jmp(MOS6502 *cpu) {
 }
 
 byte op_bpl(MOS6502 *cpu) {
-	if ((cpu->status & FLAG_N) == 0)
+	if (!CPU_GET_FLAG(cpu, FLAG_N))
 		branch(cpu);
 	return 0;
 }
 
 byte op_bmi(MOS6502 *cpu) {
-	if (cpu->status & FLAG_N)
+	if (CPU_GET_FLAG(cpu, FLAG_N))
 		branch(cpu);
 	return 0;
 }
 
 byte op_bvc(MOS6502 *cpu) {
-	if ((cpu->status & FLAG_V) == 0)
+	if (!CPU_GET_FLAG(cpu, FLAG_V))
 		branch(cpu);
 	return 0;
 }
 
 byte op_bvs(MOS6502 *cpu) {
-	if (cpu->status & FLAG_V)
+	if (CPU_GET_FLAG(cpu, FLAG_V))
 		branch(cpu);
 	return 0;
 }
 
 byte op_bcc(MOS6502 *cpu) {
-	if ((cpu->status & FLAG_C) == 0)
+	if (!CPU_GET_FLAG(cpu, FLAG_C))
 		branch(cpu);
 	return 0;
 }
 
 byte op_bcs(MOS6502 *cpu) {
-	if (cpu->status & FLAG_C)
+	if (CPU_GET_FLAG(cpu, FLAG_C))
 		branch(cpu);
 	return 0;
 }
 
 byte op_bne(MOS6502 *cpu) {
-	if ((cpu->status & FLAG_Z) == 0)
+	if (!CPU_GET_FLAG(cpu, FLAG_Z))
 		branch(cpu);
 	return 0;
 }
 
 byte op_beq(MOS6502 *cpu) {
-	if (cpu->status & FLAG_Z)
+	if (CPU_GET_FLAG(cpu, FLAG_Z))
 		branch(cpu);
 	return 0;
 }
@@ -269,22 +260,14 @@ byte op_beq(MOS6502 *cpu) {
 byte op_adc(MOS6502 *cpu) {
 	fetch(cpu);
 
-	word temp = (word)cpu->a + (word)cpu->fetched_data + (word)(cpu->status & FLAG_C);
+	word temp = (word)cpu->a + (word)cpu->fetched_data + (word)CPU_GET_FLAG(cpu, FLAG_C);
 
-	if (temp > 255)
-		cpu->status |= FLAG_C;
-	else
-		cpu->status &= ~FLAG_C;
+	CPU_SET_FLAG_IF(cpu, FLAG_C, temp > 0xFF);
 
-	cpu_set_zn_flags(cpu, (byte)(temp & 0x00FF));
+	CPU_SET_FLAG_IF(cpu, FLAG_V, (~((word)cpu->a ^ (word)cpu->fetched_data) & ((word)cpu->a ^ temp)) & 0x0080);
 
-	if ((~((word)cpu->a ^ (word)cpu->fetched_data) & ((word)cpu->a ^ temp)) & 0x0080) {
-		cpu->status |= FLAG_V;
-	} else {
-		cpu->status &= ~FLAG_V;
-	}
-
-	cpu->a = temp & 0x00FF;
+	cpu->a = temp & 0xFF;
+	cpu_set_zn_flags(cpu, cpu->a);
 
 	return 1;
 }
@@ -292,57 +275,44 @@ byte op_adc(MOS6502 *cpu) {
 byte op_sbc(MOS6502 *cpu) {
 	fetch(cpu);
 
-	word val = (word)cpu->fetched_data ^ 0x00FF;
+	word val = (word)cpu->fetched_data ^ 0xFF;
+	word temp = (word)cpu->a + val + (word)CPU_GET_FLAG(cpu, FLAG_C);
 
-	word temp = (word)cpu->a + val + (word)(cpu->status & FLAG_C);
+	CPU_SET_FLAG_IF(cpu, FLAG_C, temp > 0xFF);
+	CPU_SET_FLAG_IF(cpu, FLAG_V, (~((word)cpu->a ^ val) & ((word)cpu->a ^ temp)) & 0x0080);
 
-	if (temp > 255)
-		cpu->status |= FLAG_C;
-	else
-		cpu->status &= ~FLAG_C;
-
-	cpu_set_zn_flags(cpu, (byte)(temp & 0x00FF));
-
-	if ((~((word)cpu->a ^ val) & ((word)cpu->a ^ temp)) & 0x0080) {
-		cpu->status |= FLAG_V;
-	} else {
-		cpu->status &= ~FLAG_V;
-	}
-
-	cpu->a = temp & 0x00FF;
+	cpu->a = temp & 0xFF;
+	cpu_set_zn_flags(cpu, cpu->a);
 
 	return 1;
 }
 
 byte op_clc(MOS6502 *cpu) {
-	cpu->status &= ~FLAG_C;
+	CPU_CLR_FLAG(cpu, FLAG_C);
 	return 0;
 }
 byte op_sec(MOS6502 *cpu) {
-	cpu->status |= FLAG_C;
+	CPU_SET_FLAG(cpu, FLAG_C);
 	return 0;
 }
-
 byte op_cli(MOS6502 *cpu) {
-	cpu->status &= ~FLAG_I;
+	CPU_CLR_FLAG(cpu, FLAG_I);
 	return 0;
 }
 byte op_sei(MOS6502 *cpu) {
-	cpu->status |= FLAG_I;
+	CPU_SET_FLAG(cpu, FLAG_I);
 	return 0;
 }
-
 byte op_clv(MOS6502 *cpu) {
-	cpu->status &= ~FLAG_V;
+	CPU_CLR_FLAG(cpu, FLAG_V);
 	return 0;
 }
-
 byte op_cld(MOS6502 *cpu) {
-	cpu->status &= ~FLAG_D;
+	CPU_CLR_FLAG(cpu, FLAG_D);
 	return 0;
 }
 byte op_sed(MOS6502 *cpu) {
-	cpu->status |= FLAG_D;
+	CPU_SET_FLAG(cpu, FLAG_D);
 	return 0;
 }
 
@@ -377,110 +347,85 @@ byte op_asl(MOS6502 *cpu) {
 	fetch(cpu);
 	word temp = (word)cpu->fetched_data << 1;
 
-	if (temp & 0xFF00)
-		cpu->status |= FLAG_C;
-	else
-		cpu->status &= ~FLAG_C;
+	CPU_SET_FLAG_IF(cpu, FLAG_C, temp & 0x100);
 
+	temp &= 0xFF;
 	if (lookup[cpu->opcode].mode == addr_imp)
-		cpu->a = temp & 0x00FF;
+		cpu->a = temp;
 	else
-		cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+		cpu_write(cpu, cpu->addr_abs, temp);
 
-	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	cpu_set_zn_flags(cpu, temp);
 	return 0;
 }
 
 byte op_lsr(MOS6502 *cpu) {
 	fetch(cpu);
-	if (cpu->fetched_data & 0x0001)
-		cpu->status |= FLAG_C;
-	else
-		cpu->status &= ~FLAG_C;
 
+	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->fetched_data & 0x01);
 	word temp = cpu->fetched_data >> 1;
 
 	if (lookup[cpu->opcode].mode == addr_imp)
-		cpu->a = temp & 0x00FF;
+		cpu->a = temp;
 	else
-		cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+		cpu_write(cpu, cpu->addr_abs, temp);
 
-	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	cpu_set_zn_flags(cpu, temp);
 	return 0;
 }
 
 byte op_rol(MOS6502 *cpu) {
 	fetch(cpu);
-	word temp = (word)(cpu->fetched_data << 1) | (cpu->status & FLAG_C ? 1 : 0);
+	word temp = (word)(cpu->fetched_data << 1) | (CPU_GET_FLAG(cpu, FLAG_C) ? 1 : 0);
 
-	if (temp & 0xFF00)
-		cpu->status |= FLAG_C;
-	else
-		cpu->status &= ~FLAG_C;
+	CPU_SET_FLAG_IF(cpu, FLAG_C, temp & 0x100);
 
+	temp &= 0xFF;
 	if (lookup[cpu->opcode].mode == addr_imp)
-		cpu->a = temp & 0x00FF;
+		cpu->a = temp;
 	else
-		cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+		cpu_write(cpu, cpu->addr_abs, temp);
 
-	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	cpu_set_zn_flags(cpu, temp);
 	return 0;
 }
 
 byte op_ror(MOS6502 *cpu) {
 	fetch(cpu);
-	word temp = (word)(cpu->fetched_data >> 1) | (cpu->status & FLAG_C ? 128 : 0);
+	word temp = (word)(cpu->fetched_data >> 1) | (CPU_GET_FLAG(cpu, FLAG_C) ? 0x80 : 0);
 
-	if (temp & 0x01)
-		cpu->status |= FLAG_C;
-	else
-		cpu->status &= ~FLAG_C;
+	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->fetched_data & 0x01);
 
 	if (lookup[cpu->opcode].mode == addr_imp)
-		cpu->a = temp & 0x00FF;
+		cpu->a = temp;
 	else
-		cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+		cpu_write(cpu, cpu->addr_abs, temp);
 
-	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	cpu_set_zn_flags(cpu, temp);
 	return 0;
 }
 
 byte op_cmp(MOS6502 *cpu) {
 	fetch(cpu);
 	word temp = (word)cpu->a - (word)cpu->fetched_data;
-
-	if (cpu->a >= cpu->fetched_data)
-		cpu->status |= FLAG_C;
-	else
-		cpu->status &= ~FLAG_C;
-
-	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->a >= cpu->fetched_data);
+	cpu_set_zn_flags(cpu, temp & 0xFF);
 	return 1;
 }
 
 byte op_cpx(MOS6502 *cpu) {
 	fetch(cpu);
 	word temp = (word)cpu->x - (word)cpu->fetched_data;
-
-	if (cpu->x >= cpu->fetched_data)
-		cpu->status |= FLAG_C;
-	else
-		cpu->status &= ~FLAG_C;
-
-	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->x >= cpu->fetched_data);
+	cpu_set_zn_flags(cpu, temp & 0xFF);
 	return 0;
 }
 
 byte op_cpy(MOS6502 *cpu) {
 	fetch(cpu);
 	word temp = (word)cpu->y - (word)cpu->fetched_data;
-
-	if (cpu->y >= cpu->fetched_data)
-		cpu->status |= FLAG_C;
-	else
-		cpu->status &= ~FLAG_C;
-
-	cpu_set_zn_flags(cpu, temp & 0x00FF);
+	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->y >= cpu->fetched_data);
+	cpu_set_zn_flags(cpu, temp & 0xFF);
 	return 0;
 }
 
@@ -525,61 +470,31 @@ byte op_dey(MOS6502 *cpu) {
 }
 
 byte op_jsr(MOS6502 *cpu) {
-	word temp = cpu->pc - 1;
-	cpu_write(cpu, STACK_BASE_ADDR + cpu->sp, (temp >> 8) & 0x00FF);
-	cpu->sp--;
-
+	word ret_addr = cpu->pc - 1;
+	cpu_push_word(cpu, ret_addr);
 	cpu->pc = cpu->addr_abs;
 	return 0;
 }
 
 byte op_rts(MOS6502 *cpu) {
-	cpu->sp++;
-	word lo = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
-
-	cpu->sp++;
-	word hi = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
-
-	cpu->pc = ((hi << 8) | lo) + 1;
-
+	cpu->pc = cpu_pop_word(cpu) + 1;
 	return 0;
 }
 
 byte op_rti(MOS6502 *cpu) {
-	cpu->sp++;
-	cpu->status = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
-
+	cpu->status = cpu_pop(cpu);
 	cpu->status &= ~FLAG_B;
 	cpu->status |= FLAG_U;
-
-	cpu->sp++;
-	word lo = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
-
-	cpu->sp++;
-	word hi = cpu_read(cpu, STACK_BASE_ADDR + cpu->sp);
-
-	cpu->pc = ((hi << 8) | lo) + 1;
-
+	cpu->pc = cpu_pop_word(cpu);
 	return 0;
 }
 byte op_bit(MOS6502 *cpu) {
 	fetch(cpu);
 	word temp = cpu->a & cpu->fetched_data;
 
-	if ((temp & 0x00FF) == 0)
-		cpu->status |= FLAG_Z;
-	else
-		cpu->status &= ~FLAG_Z;
-
-	if (cpu->fetched_data & (1 << 7))
-		cpu->status |= FLAG_N;
-	else
-		cpu->status &= ~FLAG_N;
-
-	if (cpu->fetched_data & (1 << 6))
-		cpu->status |= FLAG_V;
-	else
-		cpu->status &= ~FLAG_V;
+	CPU_SET_FLAG_IF(cpu, FLAG_Z, (temp & 0xFF) == 0);
+	CPU_SET_FLAG_IF(cpu, FLAG_N, cpu->fetched_data & 0x80);
+	CPU_SET_FLAG_IF(cpu, FLAG_V, cpu->fetched_data & 0x40);
 
 	return 0;
 }
