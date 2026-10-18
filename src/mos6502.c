@@ -41,9 +41,9 @@ void init_lookup_table() {
 
 	lookup[OP_LDY_IMM] = (struct Instruction){"LDY", op_ldy, addr_imm, 2};
 	lookup[OP_LDY_ZP0] = (struct Instruction){"LDY", op_ldy, addr_zp0, 3};
-	lookup[OP_LDY_ZP0_X] = (struct Instruction){"LDY", op_ldy, addr_zp0y, 4};
+	lookup[OP_LDY_ZP0_X] = (struct Instruction){"LDY", op_ldy, addr_zp0x, 4};
 	lookup[OP_LDY_ABS] = (struct Instruction){"LDY", op_ldy, addr_abs, 4};
-	lookup[OP_LDY_ABS_X] = (struct Instruction){"LDY", op_ldy, addr_absy, 4};
+	lookup[OP_LDY_ABS_X] = (struct Instruction){"LDY", op_ldy, addr_absx, 4};
 
 	lookup[OP_STY_ZP0] = (struct Instruction){"STY", op_sty, addr_zp0, 3};
 	lookup[OP_STY_ZP0_X] = (struct Instruction){"STY", op_sty, addr_zp0x, 4};
@@ -62,7 +62,7 @@ void init_lookup_table() {
 	lookup[OP_ADC_ZP0_X] = (struct Instruction){"ADC", op_adc, addr_zp0x, 4};
 	lookup[OP_ADC_ABS] = (struct Instruction){"ADC", op_adc, addr_abs, 4};
 	lookup[OP_ADC_ABS_X] = (struct Instruction){"ADC", op_adc, addr_absx, 4};
-	lookup[OP_ADC_ABS_Y] = (struct Instruction){"ADC", op_adc, addr_absx, 4};
+	lookup[OP_ADC_ABS_Y] = (struct Instruction){"ADC", op_adc, addr_absy, 4};
 	lookup[OP_ADC_IND_X] = (struct Instruction){"ADC", op_adc, addr_indx, 6};
 	lookup[OP_ADC_IND_Y] = (struct Instruction){"ADC", op_adc, addr_indy, 5};
 

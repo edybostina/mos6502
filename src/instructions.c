@@ -52,7 +52,9 @@ byte addr_ind(MOS6502 *cpu) {
 	cpu->pc++;
 
 	word ptr = (ptr_hi << 8) | ptr_lo;
-	cpu->addr_abs = (cpu_read(cpu, ptr + 1) << 8) | cpu_read(cpu, ptr);
+	// NMOS bug: the pointer never carries into its high byte, so JMP ($xxFF) reads $xx00
+	word ptr_next = (ptr & 0xFF00) | ((ptr + 1) & 0x00FF);
+	cpu->addr_abs = (cpu_read(cpu, ptr_next) << 8) | cpu_read(cpu, ptr);
 	return 0;
 }
 
@@ -185,7 +187,7 @@ byte op_php(MOS6502 *cpu) {
 }
 
 byte op_plp(MOS6502 *cpu) {
-	cpu->status = cpu_pop(cpu) | FLAG_U;
+	cpu->status = (cpu_pop(cpu) & ~FLAG_B) | FLAG_U;
 	return 0;
 }
 
@@ -257,10 +259,54 @@ byte op_beq(MOS6502 *cpu) {
 	return 0;
 }
 
+// NMOS decimal mode: Z comes from the binary sum, N and V from the result
+// before the high nibble is corrected, C from the corrected result
+static byte adc_decimal(MOS6502 *cpu, word binary) {
+	byte a = cpu->a;
+	byte m = cpu->fetched_data;
+
+	word lo = (a & 0x0F) + (m & 0x0F) + CPU_GET_FLAG(cpu, FLAG_C);
+	if (lo > 0x09)
+		lo += 0x06;
+
+	word hi = (a >> 4) + (m >> 4) + (lo > 0x0F);
+	word result = (hi << 4) | (lo & 0x0F);
+
+	CPU_SET_FLAG_IF(cpu, FLAG_Z, (binary & 0xFF) == 0);
+	CPU_SET_FLAG_IF(cpu, FLAG_N, result & 0x80);
+	CPU_SET_FLAG_IF(cpu, FLAG_V, (~(a ^ m) & (a ^ result)) & 0x80);
+
+	if (hi > 0x09)
+		hi += 0x06;
+	CPU_SET_FLAG_IF(cpu, FLAG_C, hi > 0x0F);
+
+	return ((hi << 4) | (lo & 0x0F)) & 0xFF;
+}
+
+// NMOS decimal mode: only A changes, every flag comes from the binary result
+static byte sbc_decimal(byte a, byte m, byte carry) {
+	int lo = (a & 0x0F) - (m & 0x0F) - (1 - carry);
+	int hi = (a >> 4) - (m >> 4);
+
+	if (lo < 0) {
+		lo -= 0x06;
+		hi--;
+	}
+	if (hi < 0)
+		hi -= 0x06;
+
+	return ((hi & 0x0F) << 4) | (lo & 0x0F);
+}
+
 byte op_adc(MOS6502 *cpu) {
 	fetch(cpu);
 
 	word temp = (word)cpu->a + (word)cpu->fetched_data + (word)CPU_GET_FLAG(cpu, FLAG_C);
+
+	if (CPU_GET_FLAG(cpu, FLAG_D)) {
+		cpu->a = adc_decimal(cpu, temp);
+		return 1;
+	}
 
 	CPU_SET_FLAG_IF(cpu, FLAG_C, temp > 0xFF);
 
@@ -275,14 +321,18 @@ byte op_adc(MOS6502 *cpu) {
 byte op_sbc(MOS6502 *cpu) {
 	fetch(cpu);
 
+	byte carry = CPU_GET_FLAG(cpu, FLAG_C);
 	word val = (word)cpu->fetched_data ^ 0xFF;
-	word temp = (word)cpu->a + val + (word)CPU_GET_FLAG(cpu, FLAG_C);
+	word temp = (word)cpu->a + val + (word)carry;
 
 	CPU_SET_FLAG_IF(cpu, FLAG_C, temp > 0xFF);
 	CPU_SET_FLAG_IF(cpu, FLAG_V, (~((word)cpu->a ^ val) & ((word)cpu->a ^ temp)) & 0x0080);
+	cpu_set_zn_flags(cpu, temp & 0xFF);
 
-	cpu->a = temp & 0xFF;
-	cpu_set_zn_flags(cpu, cpu->a);
+	if (CPU_GET_FLAG(cpu, FLAG_D))
+		cpu->a = sbc_decimal(cpu->a, cpu->fetched_data, carry);
+	else
+		cpu->a = temp & 0xFF;
 
 	return 1;
 }
@@ -540,7 +590,11 @@ byte op_nop(MOS6502 *cpu) {
 }
 
 byte op_brk(MOS6502 *cpu) {
-	cpu->status |= FLAG_B;
+	cpu->pc++;	// BRK skips a padding byte
+	cpu_push_word(cpu, cpu->pc);
+	cpu_push(cpu, cpu->status | FLAG_B | FLAG_U);
+	CPU_SET_FLAG(cpu, FLAG_I);
+	cpu->pc = cpu_read_word(cpu, ADDR_IRQ_VECTOR);
 	return 0;
 }
 

@@ -1,0 +1,509 @@
+mos6502 Build Order
+===================
+
+This file is the ORDER in which to build things, so every layer rests on a
+solid one below it: sequencing, dependencies, and what "done" means for each
+step. Anything not yet sequenced is in the BACKLOG at the end.
+
+North star: boot a commercial NES game from an iNES (.nes) cartridge dump,
+with picture, sound and a controller. Super Mario Bros is the reference
+target: it needs a correct CPU, a scrolling PPU, sprite 0 hit, input and the
+APU, but only mapper 0, so it tests the emulator rather than the cartridge.
+
+Guiding rule: a test ROM before a game. A game that shows a black screen
+tells you nothing; a test ROM that fails names the instruction. Every phase
+ends with something `just test` can check, and nothing gets built on a layer
+whose test is red.
+
+Layering rule: the CPU core knows nothing about the NES, and the NES knows
+nothing about SDL. core (src/) -> machine (platforms/) -> frontend. Tests run
+headless against the first two, and the same CPU can later drive an Apple II
+or an Atari 2600 (BACKLOG).
+
+State rule: keep every piece of machine state (CPU, RAM, PPU, APU, mapper) in
+plain structs. Save states and rewind (Phase 7) are then a struct copy;
+retrofitting them onto state scattered through statics is painful.
+
+Effort is relative: S is an evening, M a few evenings, L a few weeks of them.
+
+================================================================================
+WHERE THE TREE STANDS  (branch `platforms` at b438836, October 2026)
+================================================================================
+
+Worth keeping:
+  - Table-driven decode: {name, operate, mode, cycles} per opcode. It is the
+    olc6502 layout from javidx9's NES series, a proven shape, and that
+    series' PPU episodes line up with Phase 4. All 151 official opcodes are
+    in the table, their base cycle counts match the reference, and
+    page-cross penalties flow through the (addr & op) return values as they
+    should.
+  - CPU, bus and platform live in separate files with hooks between them.
+    Right instinct; Phase 2 finishes the job.
+  - -Wall -Wextra -Werror, clang-format and a justfile. Keep all three.
+
+Needs work:
+  - No tests in the tree. 6502_functional_test.bin is downloaded but
+    untracked, and nothing in the repo runs it; Phase 0's bugs were found
+    with a throwaway harness. Phase 1 item 1 makes that harness permanent.
+  - bus.h mixes three machines' address maps: Apple II ($C000 keyboard,
+    $F800 monitor), NES ($07FF RAM mirror) and the basic platform ($FF00
+    output).
+  - The CPU cannot take interrupts and keeps no running cycle count:
+    cpu_execute(cpu, n) runs whole instructions until n is spent and drops
+    the overshoot.
+  - main.c halts by peeking memory for a BRK opcode, so no program it runs
+    can use BRK, and the peek goes through the same bus path as a real read.
+    Once reads have side effects (any PPU register), peeking changes the
+    machine.
+
+================================================================================
+PHASE 0: MAKE THE CPU CORRECT  [COMPLETE]
+Goal: Klaus Dormann's functional test reaches its success trap at $3469.
+================================================================================
+Found by running the untracked 6502_functional_test.bin (load at $0000, PC =
+$0400, stop when PC stops changing). Each item names the trap the test
+stopped at before its fix. It now reaches $3469 after 30.6M instructions and
+96.2M cycles, clean under ASan and UBSan. The test cannot see item 4; a
+scratch check covers it until nestest does (Phase 3 item 4).
+
+   1. BRK [DONE]                                      (trap $09D7, test $0B)
+      Was: op_brk only set B in the live status register.
+      Now: BRK skips its padding byte, pushes PC high, PC low, then status
+        with B and U set, sets I, and jumps through the vector at $FFFE.
+      Note: B never lives in the register, only in the pushed copy. That is
+        how a handler tells BRK from a hardware IRQ, which pushes B clear.
+
+   2. Three wrong addressing modes in the lookup table [DONE]
+                                                      (trap $0F65, test $11)
+      Was: LDY zp,X used addr_zp0y, LDY abs,X used addr_absy, and ADC abs,Y
+        used addr_absx.
+      Note: the test stopped at the first one only. The per-opcode suite in
+        Phase 1 item 6 catches this class of typo the day it is written.
+
+   3. Decimal mode [DONE]                             (trap $3477, test $2A)
+      Now: ADC and SBC take the NMOS BCD path when D is set (adc_decimal and
+        sbc_decimal in src/instructions.c). ADC: C from the corrected result,
+        Z from the binary sum, N and V from the result before the high nibble
+        is corrected. SBC: every flag from the binary result, only A differs.
+        Reference: Bruce Clark's "Decimal Mode" tutorial.
+      Note: the NES's 2A03 has decimal mode cut out of the silicon. Phase 3
+        item 3 switches it off for the NES.
+
+   4. Bugs the functional test cannot see [DONE]
+      Now: (a) JMP ($xxFF) wraps inside the page, reading the target's high
+        byte from $xx00 as the NMOS chip does. (b) PLP clears B and sets U,
+        as op_rti already did; nestest's log expects B clear after a PLP.
+
+================================================================================
+PHASE 1: TESTS AND VISIBILITY
+Goal: never debug blind again. Every later phase leans on the runner, the
+step API and the trace log built here.
+================================================================================
+
+   1. `just test` with the functional test
+      Effort: S | Unlocks: every regression check in this file
+      Scope: tests/klaus.c loads the image at $0000, sets PC = $0400, steps
+        until PC stops changing, and passes only if it stopped at $3469. On a
+        failure it prints the trap PC, the registers and the last 16 PCs.
+        Move the .bin into tests/roms/ and commit it (check its license
+        first), or fetch it from a just recipe.
+      Note: $3469 belongs to the stock binary. Reassemble the test with other
+        options and the address moves; its .lst file shows the new one. The
+        whole run takes about a second at -O2.
+
+   2. cpu_step() and a cycle counter
+      Effort: S | Unlocks: PPU sync (Phase 4), nestest's CYC column
+      Scope: int cpu_step(MOS6502 *) runs one instruction and returns its
+        cycles; a uint64_t total_cycles on the CPU counts them since reset.
+        Reset itself costs 7 cycles (nestest.log starts at CYC:7).
+        cpu_execute goes away, or becomes a loop over cpu_step.
+
+   3. Side-effect-free reads
+      Effort: S | Unlocks: items 4-5, the debugger
+      Scope: bus_read takes read_only and ignores it (include/bus.h:48). Make
+        it a real bus_peek() that platforms honour.
+      Note: reading PPUSTATUS ($2002) clears vblank, and reading $4016 shifts
+        the controller. A trace logger that reads those changes the program
+        it is tracing.
+
+   4. Disassembler and a nestest-format trace log
+      Effort: M | Unlocks: diff-based debugging for the rest of the project
+      Scope: one line per instruction, in the format nestest.log uses:
+          C000  4C F5 C5  JMP $C5F5        A:00 X:00 Y:00 P:24 SP:FD CYC:7
+        behind a --trace flag, so it costs nothing when off.
+      Note: printing operands needs the addressing mode. Comparing the mode
+        pointer against addr_* (as fetch() does) works; an enum next to it
+        is cleaner. Give ASL/LSR/ROL/ROR A their own addr_acc instead of
+        sharing addr_imp, so the disassembler can print "A".
+        Diffing your log against a known-good one finds the first wrong
+        instruction in seconds. Stepping through it in lldb takes an evening.
+
+   5. Interrupts: NMI and IRQ
+      Effort: S-M | Unlocks: NES vblank (every game), MMC3 IRQ, APU IRQ
+      Scope: nmi and irq lines the platform sets, checked by cpu_step between
+        instructions. Taking one: push PC, push status with B clear and U
+        set, set I, load the vector at $FFFA (NMI) or $FFFE (IRQ); 7 cycles.
+        IRQ is level-triggered and masked by I. NMI is edge-triggered and
+        cannot be masked.
+      Done: a hand-written test (or Klaus's 6502_interrupt_test, which needs
+        a small feedback register in the harness) takes both vectors, and RTI
+        returns to the right place with the right flags.
+
+   6. Per-opcode tests (recommended)
+      Effort: M | Unlocks: confidence in every opcode, exact cycle counts
+      Scope: the SingleStepTests 65x02 suite gives thousands of JSON cases
+        per opcode: start state, end state, and every bus access cycle by
+        cycle (compare only the count to begin with). Read them with a
+        single-file JSON parser such as cJSON, or convert them to a binary
+        format with a script. Start with the official opcodes.
+      Note: Klaus checks results, not timing; these check both.
+
+================================================================================
+PHASE 2: SHAPE FOR REAL MACHINES
+Goal: the NES platform lands on a bus it owns, in a tree that is cheap to
+change. Nothing here adds a feature; `just test` passes before and after
+every item.
+================================================================================
+
+   1. The platform owns the memory map
+      Effort: S-M | Unlocks: Phase 3 item 3
+      Scope: today Bus is a flat 64KB array, a rom_locked flag, and hooks
+        that may claim an address first. Make it an interface instead: read,
+        write and peek function pointers plus a context the platform fills
+        in. platform_basic keeps its 64KB array and the $FF00 output port.
+        The address constants in bus.h move to the platform that owns them,
+        or are deleted (the Apple II ones belong to a platform that has
+        since been removed).
+      Note: with today's fall-through, an address the NES platform forgets
+        to handle reads and writes a phantom 64KB RAM, and the game "works".
+        A real NES returns open bus there. A forgotten address should be
+        loud, not silently backed by memory the hardware does not have. The
+        CPU tests then run against a plain array with no platform code.
+
+   2. One owner, reverse teardown
+      Effort: S
+      Scope: main.c frees the platform (src/main.c:44) before bus_destroy
+        (src/main.c:48) calls platform->destroy through it. Harmless today
+        because basic_platform is static; a use-after-free the day the NES
+        platform heap-allocates its cartridge. Give the platform one owner
+        and destroy things in reverse order of creation.
+
+   3. A real front door
+      Effort: S | Unlocks: running anything without recompiling
+      Scope: `mos6502 <file>` picks the platform from the file (an iNES
+        header means NES, anything else the basic platform) or from a
+        --platform flag. The hello-world program in main.c moves to tests/ or
+        examples/. The basic platform gets an explicit way to stop (a write
+        to an exit port, or a jump-to-self like Klaus's traps) instead of
+        main peeking for BRK.
+
+   4. Tidy pass (one commit, no behaviour change)
+      Effort: S
+      Scope:
+        - a const lookup table with designated initializers
+          ([OP_LDA_IMM] = {"LDA", op_lda, addr_imm, 2}), so cpu_reset stops
+          lazily filling a global. Every slot needs an entry: Phase 3 item 5
+          fills all 256 anyway, or clang's [0 ... 255] range extension sets
+          the default.
+        - const char *name in struct Instruction
+        - byte and word typedef'd in one header (they are in three today);
+          MEM_SIZE defined once (it is in two)
+        - header guards without a leading double underscore: names like
+          __BUS_H are reserved for the compiler and libc
+        - #include "bus.h" through -Iinclude instead of "../include/bus.h"
+        - static on file-local symbols: fetch, lookup and init_lookup_table
+          are global today
+        - the function addr_abs and the field cpu->addr_abs share a name;
+          rename one
+
+================================================================================
+PHASE 3: NES SKELETON  (the CPU on NES memory, no picture yet)
+Goal: nestest.nes runs headless, and its trace matches nestest.log line for
+line, cycles included.
+================================================================================
+
+   1. iNES loader
+      Effort: S
+      Scope: a 16-byte header: "NES" then 0x1A; byte 4 is PRG ROM in 16KB
+        units; byte 5 is CHR ROM in 8KB units (0 means the board has 8KB of
+        CHR RAM); byte 6 holds mirroring (bit 0), battery (bit 1), a 512-byte
+        trainer to skip (bit 2) and the mapper's low nibble (bits 4-7);
+        byte 7 holds the mapper's high nibble. Detect NES 2.0
+        ((byte7 & 0x0C) == 0x08) and read it as plain iNES for now.
+      Done: `mos6502 --info game.nes` prints mapper, PRG/CHR sizes and
+        mirroring.
+
+   2. Mapper interface and mapper 0 (NROM)
+      Effort: S | Unlocks: Donkey Kong, Super Mario Bros, nestest; Phase 5
+      Scope: struct Mapper { cpu_read, cpu_write, ppu_read, ppu_write,
+        mirroring, irq } and a constructor per mapper number. NROM maps PRG
+        at $8000-$FFFF (16KB mirrored twice, or 32KB), CHR at PPU $0000-$1FFF,
+        and 8KB of PRG RAM at $6000-$7FFF.
+      Note: shape the interface for MMC3 now, which has to watch PPU address
+        line A12 to clock its IRQ (Phase 5 item 4), even though NROM ignores
+        all of it.
+
+   3. NES CPU memory map
+      Effort: S
+      Scope: platforms/nes/: $0000-$07FF is 2KB of RAM, mirrored up to
+        $1FFF; $2000-$2007 are the PPU registers, mirrored every 8 bytes up
+        to $3FFF (stubs until Phase 4); $4000-$4017 are APU and I/O (stubs);
+        $4020-$FFFF goes to the mapper. Unmapped reads return open bus (the
+        last value on the bus), not 0.
+      Note: the 2A03 has no decimal mode: SED sets the flag, and ADC/SBC
+        ignore it. Give MOS6502 a `decimal_enabled` field that the NES
+        platform clears, instead of #ifdef-ing it out, so one core serves
+        both.
+
+   4. nestest, automation mode
+      Effort: M | Unlocks: a CPU you can trust under real NES software
+      Scope: load nestest.nes, set PC = $C000 instead of the reset vector,
+        run with --trace, and diff against nestest.log. The first line that
+        differs is the bug. nestest leaves its result codes at $02 and $03
+        (00 00 is a pass).
+      Done: the trace matches nestest.log through the official-opcode
+        section, CYC column included. Ignore the PPU column until Phase 4.
+      Note: nestest.nes, nestest.log and nestest.txt (which explains the
+        result codes) are on the NESdev wiki's "Emulator tests" page.
+
+   5. Unofficial opcodes
+      Effort: M | Unlocks: the rest of nestest, the few games that use them
+      Scope: fill all 256 table entries. The stable ones are LAX, SAX, DCP,
+        ISC, SLO, RLA, SRE and RRA; the 1-, 2- and 3-byte NOPs (which still
+        read their operand and pay page-cross cycles); and SBC #imm at $EB.
+        JAM/KIL ($02 and friends) can halt the CPU with a message.
+      Done: all of nestest.log matches.
+      Note: today op_xxx is implied mode and 2 cycles, so one unofficial
+        opcode with an operand knocks PC out of step with the program. Even
+        before implementing them, give each the right length and cycles.
+
+   6. Headless test-ROM runner
+      Effort: S | Unlocks: blargg's test ROMs in `just test`
+      Scope: blargg's ROMs write a status byte to $6000 ($80 while running,
+        then a result code) and a text message from $6004. Run N frames,
+        read those, print, exit with the code.
+      Note: some of these ship as MMC1 cartridges; those join the suite
+        after Phase 5 item 3.
+
+================================================================================
+PHASE 4: PPU  (pictures; the largest single piece of the project)
+Goal: Donkey Kong, then Super Mario Bros, playable from the keyboard.
+================================================================================
+Timing model: catch-up. After each cpu_step returns n cycles, the PPU runs 3n
+dots (NTSC). A frame is 262 scanlines of 341 dots. The vblank flag goes up at
+scanline 241, dot 1, and fires NMI if PPUCTRL bit 7 is set; the pre-render
+line (261) clears it. That is accurate enough for every game in this phase
+and most of the library; the BACKLOG has the per-cycle version for the few
+games it is not.
+
+   1. Registers, PPU address space, vblank NMI
+      Effort: M | Unlocks: games boot and run their frame loop
+      Scope: $2000 PPUCTRL through $2007 PPUDATA, mirrored up to $3FFF. A
+        shared write toggle w, which a $2002 read resets; that read also
+        clears vblank. $2007 reads are buffered one step behind, except
+        palette reads; the address steps by 1 or 32 (PPUCTRL bit 2). The PPU
+        address space: pattern tables through the mapper, 2KB of nametable
+        RAM with horizontal or vertical mirroring, and a 32-byte palette in
+        which $3F10/$14/$18/$1C mirror $3F00/$04/$08/$0C.
+      Done: the trace shows a game leave its vblank-wait loop and enter its
+        NMI handler once per frame; the first test of blargg's ppu_vbl_nmi
+        suite (vbl basics) passes.
+
+   2. A window, a palette and debug views
+      Effort: M | Unlocks: seeing what the PPU sees before it can render
+      Scope: SDL3 (brew install sdl3; SDL2 is fine too and has more
+        tutorials), a 256x240 streaming texture scaled 3x, and a 64-colour NES
+        palette (a .pal file, or a table from the NESdev wiki). First output:
+        a pattern table viewer that draws the two 4KB CHR tables as 128x128
+        tile sheets, so you see the game's graphics the day the loader works.
+        Then a nametable viewer.
+      Note: SDL lives in one frontend file. Nothing under src/ or platforms/
+        includes it, so `just test` stays headless. Keep the viewers behind a
+        key; they are the first thing to open for every PPU bug from here on.
+
+   3. Background rendering
+      Effort: L
+      Scope: the per-dot fetch pipeline from the NESdev "PPU rendering"
+        page: every 8 dots, fetch the nametable byte, the attribute byte and
+        two pattern bytes into 16-bit shift registers; output one pixel per
+        dot. Build the loopy registers (v, t, fine x, w) now; scrolling in
+        item 6 uses the same ones.
+      Done: Donkey Kong's title screen, in the right colours.
+
+   4. Sprites and OAM DMA
+      Effort: M-L
+      Scope: 256 bytes of OAM behind $2003/$2004; OAM DMA through $4014,
+        which copies a page into OAM and stalls the CPU 513 or 514 cycles.
+        Per-scanline evaluation with the 8-sprite limit and the overflow
+        flag; priority, flipping and 8x16 sprites.
+      Done: Donkey Kong in-game, with Mario, Kong and the barrels where they
+        belong.
+
+   5. Controllers
+      Effort: S
+      Scope: writing 1 then 0 to $4016 latches the buttons; each read of
+        $4016 (pad 1) or $4017 (pad 2) shifts out one, in the order A, B,
+        Select, Start, Up, Down, Left, Right. The frontend maps the keyboard.
+      Done: FIRST PLAYABLE GAME. Donkey Kong (mapper 0, no scrolling).
+
+   6. Scrolling and sprite 0 hit
+      Effort: M-L
+      Scope: $2005/$2006 writes go through t and w. Coarse X increments every
+        8 dots, Y increments at dot 256, the horizontal bits copy from t at
+        dot 257, and the vertical bits copy during the pre-render line (dots
+        280-304). Sprite 0 hit sets bit 6 of $2002 where an opaque sprite 0
+        pixel overlaps an opaque background pixel.
+      Done: Super Mario Bros plays, its status bar holding still while the
+        level scrolls (the game splits the screen on sprite 0 hit); blargg's
+        sprite_hit_tests pass.
+
+   7. Frame pacing
+      Effort: S
+      Scope: an NTSC NES runs at 60.0988 frames per second. Run the emulator
+        a frame at a time and pace it on a timer, or on vsync and accept the
+        small drift. Phase 6 item 3 replaces this with audio-driven pacing.
+
+================================================================================
+PHASE 5: MAPPERS  (more of the library)
+Goal: mappers 0-4, which between them cover most of the well-known games.
+Ordered by payoff per line of code.
+================================================================================
+
+   1. UxROM (mapper 2)
+      Effort: S
+      Scope: a write anywhere in $8000-$FFFF selects the 16KB bank at $8000;
+        the last bank stays fixed at $C000. CHR is 8KB of RAM.
+      Done: Mega Man, Castlevania, Contra, DuckTales.
+      Note: the first CHR RAM games here, so $2007 writes into pattern
+        memory have to land.
+
+   2. CNROM (mapper 3)
+      Effort: S
+      Scope: a write in $8000-$FFFF switches the 8KB CHR bank.
+      Done: Gradius, Arkanoid.
+
+   3. MMC1 (mapper 1)
+      Effort: M
+      Scope: writes to $8000-$FFFF shift in one bit at a time to a 5-bit
+        register (a write with bit 7 set resets it). The fifth write lands
+        in control, CHR bank 0, CHR bank 1 or the PRG bank, chosen by
+        address. Control sets mirroring and the PRG and CHR banking modes.
+        8KB of PRG RAM at $6000.
+      Done: The Legend of Zelda, Metroid, Mega Man 2.
+
+   4. MMC3 (mapper 4)
+      Effort: L | Depends: Phase 1 item 5 (IRQ)
+      Scope: 8KB PRG and 1KB/2KB CHR banking through $8000/$8001, mirroring
+        at $A000, PRG RAM protect at $A001, and a scanline counter at
+        $C000-$E001. Rising edges of PPU address line A12, once per scanline
+        under normal settings, clock the counter, which raises an IRQ.
+      Done: Super Mario Bros 3 with a steady status bar (an MMC3 IRQ split);
+        blargg's mmc3_test.
+
+   5. Battery saves
+      Effort: S
+      Scope: for games with the battery bit (iNES byte 6, bit 1), write PRG
+        RAM to <rom>.sav on exit and read it back on load.
+      Done: a Zelda save survives a restart.
+
+================================================================================
+PHASE 6: APU  (sound)
+Goal: Super Mario Bros sounds right, and audio drives the frame rate.
+================================================================================
+
+   1. Frame counter and status
+      Effort: S-M
+      Scope: $4017 selects the 4- or 5-step sequence that clocks envelopes,
+        length counters and sweeps; 4-step mode can raise the frame IRQ.
+        $4015 enables the channels and reports their length-counter status.
+      Note: worth doing before any sound plays, since some games poll $4015
+        or depend on the frame IRQ.
+
+   2. Pulse x2, triangle, noise
+      Effort: M
+      Scope: pulse has duty, envelope, sweep and length. Triangle has a
+        linear counter and a 32-step sequence. Noise is a 15-bit LFSR with two
+        modes. Mix them with the NESdev mixer formulas, or their lookup-table
+        approximation.
+
+   3. Output and audio-driven sync
+      Effort: M
+      Scope: generate samples at the CPU rate (1.789773 MHz), filter and
+        downsample to 48 kHz, and feed an SDL audio stream. Pace frames on
+        the stream's fill level; that replaces Phase 4 item 7's timer and
+        stops the crackle from timer drift.
+
+   4. DMC
+      Effort: M
+      Scope: delta-modulated sample playback that reads PRG memory itself,
+        stealing CPU cycles, with its own IRQ.
+      Done: blargg's apu_test passes; sampled drums play in games that use
+        them, such as Super Mario Bros 3.
+
+================================================================================
+PHASE 7: QUALITY OF LIFE
+================================================================================
+
+   1. Save states: cheap if the state rule held. Write the structs out, read
+      them back, and put a version number in the format from the first
+      commit.
+   2. Debugger: pause, step, breakpoints on PC and on memory access, a
+      memory viewer, the PPU viewers from Phase 4 item 2, and trace on/off
+      at runtime.
+   3. Rewind: a ring of save states, one every few frames.
+   4. Gamepads through SDL, a second player, pause/reset/turbo keys,
+      screenshots, drag-and-drop ROM loading.
+
+================================================================================
+BACKLOG  (wanted, not yet sequenced)
+================================================================================
+Promote an item into a phase when something depends on it.
+
+  - Per-cycle CPU: every bus access in its own cycle, dummy reads and writes
+      included. The instruction-stepped core is the right first design; a
+      few picky games and test ROMs (blargg's cpu_dummy_reads, for one) need
+      this.
+
+  - NSF music player: CPU and APU, no PPU. A fun detour once Phase 6 lands.
+
+  - More mappers: AxROM (7: Battletoads, also a timing torture test), MMC2
+      (9: Punch-Out!!), MMC5 (5: Castlevania III), VRC6 and its extra sound
+      channels.
+
+  - PAL timing: 312 scanlines, 3.2 dots per CPU cycle.
+
+  - NES 2.0 header fields.
+
+  - Other 6502 machines on the same core: Apple II (where decimal mode earns
+      its keep), Atari 2600 (a 6507; racing the beam teaches timing),
+      Commodore 64 (6510, VIC-II, SID; a whole project of its own).
+
+  - A WebAssembly build through Emscripten, which SDL supports.
+
+  - Your own cartridges: a USB cartridge dumper (INL Retro, for one) turns
+      carts you own into .nes files, which is the legal way to play
+      commercial games here. Homebrew and test ROMs are free to use from day
+      one.
+
+  - Game Genie codes.
+
+================================================================================
+REFERENCE SHELF
+================================================================================
+
+  - NESdev wiki, www.nesdev.org/wiki: the reference for Phases 3-6. Start
+      with "CPU memory map", "PPU registers", "PPU rendering", "PPU
+      scrolling", "Mapper" and "APU".
+  - 6502 instruction reference: www.masswerk.at/6502/6502_instruction_set.html
+  - Decimal mode: www.6502.org/tutorials/decimal_mode.html (Bruce Clark)
+  - Klaus Dormann's tests: github.com/Klaus2m5/6502_65C02_functional_tests
+  - nestest, blargg's ROMs and more: the NESdev wiki's "Emulator tests"
+      page; mirrored at github.com/christopherpow/nes-test-roms
+  - Per-opcode tests: github.com/SingleStepTests/65x02
+  - javidx9's "NES Emulator From Scratch" video series (OneLoneCoder). The
+      CPU here already follows its olc6502 structure.
+
+================================================================================
+When in doubt: a test ROM before a game, and a green `just test` before the
+next layer.
+================================================================================
