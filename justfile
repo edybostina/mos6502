@@ -53,6 +53,8 @@ run-debug: debug
 test:
     @echo "Running tests..."
     @mkdir -p {{BUILD_DIR}}
+    {{CC}} {{CFLAGS}} {{RELEASE_FLAGS}} {{TEST_DIR}}/cpu_cycles.c {{CORE_SOURCES}} -o {{BUILD_DIR}}/cpu_cycles
+    @./{{BUILD_DIR}}/cpu_cycles
     {{CC}} {{CFLAGS}} {{RELEASE_FLAGS}} {{TEST_DIR}}/klaus.c {{CORE_SOURCES}} -o {{BUILD_DIR}}/klaus
     @./{{BUILD_DIR}}/klaus {{TEST_ROM_DIR}}/6502_functional_test.bin
     @echo "All tests passed"

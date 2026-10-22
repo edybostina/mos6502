@@ -42,11 +42,13 @@ typedef struct MOS6502 {
     byte status;  // processor status register
 
     byte opcode;       // current instruction
-    byte cycles;       // cycles remaining
+    byte cycles;       // current instruction cycles (penalties included)
     byte fetched_data; // data fetched from memory
 
     word addr_abs; // absolute address
     word addr_rel; // relative address for branches
+
+    uint64_t total_cycles; // total elapsed cycles since reset
 
     Bus *bus;
 } MOS6502;
@@ -54,6 +56,7 @@ typedef struct MOS6502 {
 void cpu_connect_bus(MOS6502 *cpu, Bus *bus);
 void cpu_reset(MOS6502 *cpu);
 void cpu_execute(MOS6502 *cpu, int cycles);
+int cpu_step(MOS6502 *cpu);
 
 static inline byte cpu_read(MOS6502 *cpu, word addr)
 {

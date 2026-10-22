@@ -226,6 +226,7 @@ void cpu_reset(MOS6502 *cpu)
     cpu->fetched_data = 0x00;
     cpu->opcode = 0x00;
     cpu->cycles = 0;
+    cpu->total_cycles = 7; // reset sequence cost (an interrupt sequence with writes turned off)
 }
 
 void cpu_connect_bus(MOS6502 *cpu, Bus *bus)
@@ -238,17 +239,25 @@ void cpu_execute(MOS6502 *cpu, int cycles)
     int remaining = cycles;
 
     while (remaining > 0) {
-        cpu->opcode = cpu_read(cpu, cpu->pc++);
+        int c = cpu_step(cpu);
 
-        cpu->cycles = lookup[cpu->opcode].cycles;
+        bus_tick(cpu->bus, c);
 
-        byte addr_cycles = lookup[cpu->opcode].mode(cpu);
-        byte op_cycles = lookup[cpu->opcode].operate(cpu);
-
-        cpu->cycles += (addr_cycles & op_cycles);
-
-        bus_tick(cpu->bus, cpu->cycles);
-
-        remaining -= cpu->cycles;
+        remaining -= c;
     }
+}
+
+int cpu_step(MOS6502 *cpu)
+{
+    cpu->opcode = cpu_read(cpu, cpu->pc++);
+
+    cpu->cycles = lookup[cpu->opcode].cycles;
+
+    byte addr_cycles = lookup[cpu->opcode].mode(cpu);
+    byte op_cycles = lookup[cpu->opcode].operate(cpu);
+
+    cpu->cycles += (addr_cycles & op_cycles);
+    cpu->total_cycles += cpu->cycles;
+
+    return cpu->cycles;
 }
