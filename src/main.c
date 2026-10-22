@@ -1,46 +1,51 @@
 #include "../include/mos6502.h"
 #include "../include/bus.h"
 #include "../include/opcodes.h"
+#include "../platforms/platform_basic.h"
 #include <stdio.h>
 
-int main() {
+int main(void) {
 	MOS6502 cpu;
 	Bus bus;
 
-	bus_init(&bus);
+	Platform *platform = platform_basic_create();
+
+	bus_init(&bus, platform);
 	cpu_connect_bus(&cpu, &bus);
 
-	byte program[] = {0xA2, 0x00,  // LDX #00       (Initialize Index X = 0)
+	bus.rom_locked = 0;
 
-						 // LOOP START (Address 0x8002)
-						 OP_LDA_ABS_X, 0x0F, 0x80,	// LDA $800F,X   (Load char from String + X)
-						 OP_BEQ, 0x07,  // BEQ +7        (If Char is 0, jump to BRK)
-
-						 OP_STA_ABS, 0x00, 0xFF,	// STA $FF00     (Write to Output Port -> Prints to Console)
-
-						 OP_INX,	// INX           (Increment Index)
-						 OP_JMP_ABS, 0x02, 0x80,	// JMP $8002     (Jump back to LOOP START)
-
-						 OP_BRK,	// BRK           (Stop)
-
-						 'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', '!', '\n', 0x00};
+	static const byte program[] = {0xA2, 0x00,	// LDX #$00       ; X = 0
+								   // LOOP:
+								   OP_LDA_ABS_X, 0x0F, 0x80,  // LDA $800F,X    ; Load char from string
+								   OP_BEQ, 0x07,  // BEQ END        ; If 0, end
+								   OP_STA_ABS, 0x00, 0xFF,	// STA $FF00      ; Output char
+								   OP_INX,	// INX            ; X++
+								   OP_JMP_ABS, 0x02, 0x80,	// JMP LOOP       ; Loop
+								   // END:
+								   OP_BRK,	// BRK            ; Stop
+								   // String data at $800F
+								   'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', '!', '\n', 0x00};
 
 	bus_load_data(&bus, 0x8000, program, sizeof(program));
 
-	byte reset_vector[] = {0x00, 0x80};
-	bus_load_data(&bus, 0xFFFC, reset_vector, 2);
+	static const byte reset_vector[] = {0x00, 0x80};
+	bus_load_data(&bus, ADDR_RESET_VECTOR, reset_vector, sizeof(reset_vector));
+
+	bus.rom_locked = 1;
 
 	cpu_reset(&cpu);
 
-	printf("--- Computer Power On ---\n");
+	printf("--- Booting up... ---\n");
 
-	while (1) {
+	while (cpu_read(&cpu, cpu.pc) != OP_BRK) {
 		cpu_execute(&cpu, 1);
-		if (bus_read(&bus, cpu.pc, 1) == OP_BRK) {
-			break;
-		}
 	}
+	platform_basic_free(platform);
 
-	printf("--- CPU Halted ---\n");
+	printf("--- CPU Halt ---\n");
+
+	bus_destroy(&bus);
+
 	return 0;
 }

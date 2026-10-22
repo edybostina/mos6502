@@ -18,8 +18,8 @@ void init_lookup_table() {
 	lookup[OP_LDA_ABS] = (struct Instruction){"LDA", op_lda, addr_abs, 4};
 	lookup[OP_LDA_ABS_X] = (struct Instruction){"LDA", op_lda, addr_absx, 4};
 	lookup[OP_LDA_ABS_Y] = (struct Instruction){"LDA", op_lda, addr_absy, 4};
-	lookup[OP_LDA_IND_Y] = (struct Instruction){"LDA", op_lda, addr_indx, 6};
-	lookup[OP_LDA_IND_X] = (struct Instruction){"LDA", op_lda, addr_indy, 5};
+	lookup[OP_LDA_IND_X] = (struct Instruction){"LDA", op_lda, addr_indx, 6};
+	lookup[OP_LDA_IND_Y] = (struct Instruction){"LDA", op_lda, addr_indy, 5};
 
 	lookup[OP_STA_ZP0] = (struct Instruction){"STA", op_sta, addr_zp0, 3};
 	lookup[OP_STA_ZP0_X] = (struct Instruction){"STA", op_sta, addr_zp0x, 4};
@@ -41,9 +41,9 @@ void init_lookup_table() {
 
 	lookup[OP_LDY_IMM] = (struct Instruction){"LDY", op_ldy, addr_imm, 2};
 	lookup[OP_LDY_ZP0] = (struct Instruction){"LDY", op_ldy, addr_zp0, 3};
-	lookup[OP_LDY_ZP0_X] = (struct Instruction){"LDY", op_ldy, addr_zp0y, 4};
+	lookup[OP_LDY_ZP0_X] = (struct Instruction){"LDY", op_ldy, addr_zp0x, 4};
 	lookup[OP_LDY_ABS] = (struct Instruction){"LDY", op_ldy, addr_abs, 4};
-	lookup[OP_LDY_ABS_X] = (struct Instruction){"LDY", op_ldy, addr_absy, 4};
+	lookup[OP_LDY_ABS_X] = (struct Instruction){"LDY", op_ldy, addr_absx, 4};
 
 	lookup[OP_STY_ZP0] = (struct Instruction){"STY", op_sty, addr_zp0, 3};
 	lookup[OP_STY_ZP0_X] = (struct Instruction){"STY", op_sty, addr_zp0x, 4};
@@ -62,7 +62,7 @@ void init_lookup_table() {
 	lookup[OP_ADC_ZP0_X] = (struct Instruction){"ADC", op_adc, addr_zp0x, 4};
 	lookup[OP_ADC_ABS] = (struct Instruction){"ADC", op_adc, addr_abs, 4};
 	lookup[OP_ADC_ABS_X] = (struct Instruction){"ADC", op_adc, addr_absx, 4};
-	lookup[OP_ADC_ABS_Y] = (struct Instruction){"ADC", op_adc, addr_absx, 4};
+	lookup[OP_ADC_ABS_Y] = (struct Instruction){"ADC", op_adc, addr_absy, 4};
 	lookup[OP_ADC_IND_X] = (struct Instruction){"ADC", op_adc, addr_indx, 6};
 	lookup[OP_ADC_IND_Y] = (struct Instruction){"ADC", op_adc, addr_indy, 5};
 
@@ -203,24 +203,26 @@ void init_lookup_table() {
 	lookup[OP_SED] = (struct Instruction){"SED", op_sed, addr_imp, 2};
 }
 
-// initialize cpu state
 void cpu_reset(MOS6502 *cpu) {
-	init_lookup_table();
+	static int lookup_initialized = 0;
 
-	cpu->a = 0;
-	cpu->x = 0;
-	cpu->y = 0;
+	if (!lookup_initialized) {
+		init_lookup_table();
+		lookup_initialized = 1;
+	}
+
+	cpu->a = 0x00;
+	cpu->x = 0x00;
+	cpu->y = 0x00;
 	cpu->sp = 0xFD;
-	cpu->status = 0x00 | FLAG_U;
+	cpu->status = FLAG_U | FLAG_I;
 
-	cpu->addr_abs = 0xFFFC;
-	word lo = cpu_read(cpu, cpu->addr_abs + 0);
-	word hi = cpu_read(cpu, cpu->addr_abs + 1);
-	cpu->pc = (hi << 8) | lo;
+	cpu->pc = cpu_read_word(cpu, ADDR_RESET_VECTOR);
 
-	cpu->addr_rel = 0;
-	cpu->addr_abs = 0;
-	cpu->fetched_data = 0;
+	cpu->addr_rel = 0x0000;
+	cpu->addr_abs = 0x0000;
+	cpu->fetched_data = 0x00;
+	cpu->opcode = 0x00;
 	cpu->cycles = 0;
 }
 
@@ -228,49 +230,21 @@ void cpu_connect_bus(MOS6502 *cpu, Bus *bus) {
 	cpu->bus = bus;
 }
 
-// read a byte from memory
-byte cpu_read(MOS6502 *cpu, word addr) {
-	return bus_read(cpu->bus, addr, 0);
-}
-
-// read a word from memory
-word cpu_read_word(MOS6502 *cpu, word addr) {
-	word lo = bus_read(cpu->bus, addr, 0);
-	word hi = bus_read(cpu->bus, addr + 1, 0);
-	return (hi << 8) | lo;
-}
-
-// write a byte to memory
-void cpu_write(MOS6502 *cpu, word addr, byte data) {
-	bus_write(cpu->bus, addr, data);
-}
-
-// set zero and negative flags based on a result;
-void cpu_set_zn_flags(MOS6502 *cpu, byte result) {
-	if (result == 0)
-		cpu->status |= FLAG_Z;
-	else
-		cpu->status &= ~FLAG_Z;
-
-	if (result & 0x80)
-		cpu->status |= FLAG_N;
-	else
-		cpu->status &= ~FLAG_N;
-}
-
-// execute given amount of cycles
 void cpu_execute(MOS6502 *cpu, int cycles) {
-	int remaining_cycles = cycles;
-	while (remaining_cycles > 0) {
-		cpu->opcode = cpu_read(cpu, cpu->pc);
-		cpu->pc++;
+	int remaining = cycles;
+
+	while (remaining > 0) {
+		cpu->opcode = cpu_read(cpu, cpu->pc++);
+
 		cpu->cycles = lookup[cpu->opcode].cycles;
 
-		byte additional_cycle1 = lookup[cpu->opcode].mode(cpu);
-		byte additional_cycle2 = lookup[cpu->opcode].operate(cpu);
+		byte addr_cycles = lookup[cpu->opcode].mode(cpu);
+		byte op_cycles = lookup[cpu->opcode].operate(cpu);
 
-		cpu->cycles += (additional_cycle1 & additional_cycle2);
+		cpu->cycles += (addr_cycles & op_cycles);
 
-		remaining_cycles -= cpu->cycles;
+		bus_tick(cpu->bus, cpu->cycles);
+
+		remaining -= cpu->cycles;
 	}
 }
