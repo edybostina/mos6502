@@ -10,15 +10,15 @@ typedef struct Bus Bus;
 typedef struct Platform Platform;
 
 struct Platform {
-	const char *name;
+    const char *name;
 
-	void (*init)(Bus *bus);
-	void (*destroy)(Bus *bus);
-	int (*read_hook)(Bus *bus, word addr, byte *data);
-	int (*write_hook)(Bus *bus, word addr, byte data);
-	void (*tick)(Bus *bus, int cycles);
+    void (*init)(Bus *bus);
+    void (*destroy)(Bus *bus);
+    int (*read_hook)(Bus *bus, word addr, byte *data);
+    int (*write_hook)(Bus *bus, word addr, byte data);
+    void (*tick)(Bus *bus, int cycles);
 
-	void *platform_data;
+    void *platform_data;
 };
 
-#endif	// __PLATFORM_H
+#endif // __PLATFORM_H

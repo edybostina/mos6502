@@ -6,4 +6,4 @@
 Platform *platform_basic_create(void);
 void platform_basic_free(Platform *platform);
 
-#endif	// __PLATFORM_BASIC_H
+#endif // __PLATFORM_BASIC_H

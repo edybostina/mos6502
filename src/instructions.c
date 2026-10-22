@@ -1,604 +1,695 @@
 #include "../include/instructions.h"
 
-byte fetch(MOS6502 *cpu) {
-	if (!(lookup[cpu->opcode].mode == addr_imp)) {
-		cpu->fetched_data = cpu_read(cpu, cpu->addr_abs);
-	}
-	return cpu->fetched_data;
+byte fetch(MOS6502 *cpu)
+{
+    if (!(lookup[cpu->opcode].mode == addr_imp)) {
+        cpu->fetched_data = cpu_read(cpu, cpu->addr_abs);
+    }
+    return cpu->fetched_data;
 }
 
-static inline void branch(MOS6502 *cpu) {
-	cpu->cycles++;
-	cpu->addr_abs = cpu->pc + cpu->addr_rel;
+static inline void branch(MOS6502 *cpu)
+{
+    cpu->cycles++;
+    cpu->addr_abs = cpu->pc + cpu->addr_rel;
 
-	if ((cpu->addr_abs & 0xFF00) != (cpu->pc & 0xFF00))
-		cpu->cycles++;
+    if ((cpu->addr_abs & 0xFF00) != (cpu->pc & 0xFF00)) {
+        cpu->cycles++;
+    }
 
-	cpu->pc = cpu->addr_abs;
+    cpu->pc = cpu->addr_abs;
 }
 
-byte addr_imp(MOS6502 *cpu) {
-	cpu->fetched_data = cpu->a;
-	return 0;
+byte addr_imp(MOS6502 *cpu)
+{
+    cpu->fetched_data = cpu->a;
+    return 0;
 }
 
-byte addr_imm(MOS6502 *cpu) {
-	cpu->addr_abs = cpu->pc++;
-	return 0;
+byte addr_imm(MOS6502 *cpu)
+{
+    cpu->addr_abs = cpu->pc++;
+    return 0;
 }
 
-byte addr_zp0(MOS6502 *cpu) {
-	cpu->addr_abs = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
-	cpu->addr_abs &= 0x00FF;
-	return 0;
+byte addr_zp0(MOS6502 *cpu)
+{
+    cpu->addr_abs = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
+    cpu->addr_abs &= 0x00FF;
+    return 0;
 }
 
-byte addr_rel(MOS6502 *cpu) {
-	cpu->addr_rel = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
+byte addr_rel(MOS6502 *cpu)
+{
+    cpu->addr_rel = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
 
-	if (cpu->addr_rel & 0x80) {
-		cpu->addr_rel |= 0xFF00;
-	}
+    if (cpu->addr_rel & 0x80) {
+        cpu->addr_rel |= 0xFF00;
+    }
 
-	return 0;
+    return 0;
 }
 
-byte addr_ind(MOS6502 *cpu) {
-	word ptr_lo = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
-	word ptr_hi = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
+byte addr_ind(MOS6502 *cpu)
+{
+    word ptr_lo = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
+    word ptr_hi = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
 
-	word ptr = (ptr_hi << 8) | ptr_lo;
-	// NMOS bug: the pointer never carries into its high byte, so JMP ($xxFF) reads $xx00
-	word ptr_next = (ptr & 0xFF00) | ((ptr + 1) & 0x00FF);
-	cpu->addr_abs = (cpu_read(cpu, ptr_next) << 8) | cpu_read(cpu, ptr);
-	return 0;
+    word ptr = (ptr_hi << 8) | ptr_lo;
+    // NMOS bug: the pointer never carries into its high byte, so JMP ($xxFF) reads $xx00
+    word ptr_next = (ptr & 0xFF00) | ((ptr + 1) & 0x00FF);
+    cpu->addr_abs = (cpu_read(cpu, ptr_next) << 8) | cpu_read(cpu, ptr);
+    return 0;
 }
 
-byte addr_abs(MOS6502 *cpu) {
-	word lo = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
-	word hi = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
-	cpu->addr_abs = (hi << 8) | lo;
-	return 0;
+byte addr_abs(MOS6502 *cpu)
+{
+    word lo = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
+    word hi = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
+    cpu->addr_abs = (hi << 8) | lo;
+    return 0;
 }
 
-byte addr_zp0x(MOS6502 *cpu) {
-	word addr = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
+byte addr_zp0x(MOS6502 *cpu)
+{
+    word addr = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
 
-	addr = (addr + cpu->x) & 0x00FF;
-	cpu->addr_abs = addr;
+    addr = (addr + cpu->x) & 0x00FF;
+    cpu->addr_abs = addr;
 
-	return 0;
+    return 0;
 }
 
-byte addr_zp0y(MOS6502 *cpu) {
-	word addr = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
+byte addr_zp0y(MOS6502 *cpu)
+{
+    word addr = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
 
-	addr = (addr + cpu->y) & 0x00FF;
-	cpu->addr_abs = addr;
+    addr = (addr + cpu->y) & 0x00FF;
+    cpu->addr_abs = addr;
 
-	return 0;
+    return 0;
 }
 
-byte addr_absx(MOS6502 *cpu) {
-	word lo = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
-	word hi = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
+byte addr_absx(MOS6502 *cpu)
+{
+    word lo = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
+    word hi = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
 
-	word abs_addr = (hi << 8) | lo;
-	cpu->addr_abs = abs_addr + cpu->x;
+    word abs_addr = (hi << 8) | lo;
+    cpu->addr_abs = abs_addr + cpu->x;
 
-	if ((cpu->addr_abs & 0xFF00) != (hi << 8)) {
-		return 1;
-	}
+    if ((cpu->addr_abs & 0xFF00) != (hi << 8)) {
+        return 1;
+    }
 
-	return 0;
+    return 0;
 }
 
-byte addr_absy(MOS6502 *cpu) {
-	word lo = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
-	word hi = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
+byte addr_absy(MOS6502 *cpu)
+{
+    word lo = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
+    word hi = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
 
-	word abs_addr = (hi << 8) | lo;
-	cpu->addr_abs = abs_addr + cpu->y;
+    word abs_addr = (hi << 8) | lo;
+    cpu->addr_abs = abs_addr + cpu->y;
 
-	if ((cpu->addr_abs & 0xFF00) != (hi << 8)) {
-		return 1;
-	}
+    if ((cpu->addr_abs & 0xFF00) != (hi << 8)) {
+        return 1;
+    }
 
-	return 0;
+    return 0;
 }
 
-byte addr_indx(MOS6502 *cpu) {
-	word t = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
+byte addr_indx(MOS6502 *cpu)
+{
+    word t = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
 
-	word lo = cpu_read(cpu, (word)(t + (word)cpu->x) & 0x00FF);
-	word hi = cpu_read(cpu, (word)(t + (word)cpu->x + 1) & 0x00FF);
+    word lo = cpu_read(cpu, (word)(t + (word)cpu->x) & 0x00FF);
+    word hi = cpu_read(cpu, (word)(t + (word)cpu->x + 1) & 0x00FF);
 
-	cpu->addr_abs = (hi << 8) | lo;
-	return 0;
+    cpu->addr_abs = (hi << 8) | lo;
+    return 0;
 }
 
-byte addr_indy(MOS6502 *cpu) {
-	word t = cpu_read(cpu, cpu->pc);
-	cpu->pc++;
+byte addr_indy(MOS6502 *cpu)
+{
+    word t = cpu_read(cpu, cpu->pc);
+    cpu->pc++;
 
-	word lo = cpu_read(cpu, t & 0x00FF);
-	word hi = cpu_read(cpu, (t + 1) & 0x00FF);
+    word lo = cpu_read(cpu, t & 0x00FF);
+    word hi = cpu_read(cpu, (t + 1) & 0x00FF);
 
-	word ptr_addr = (hi << 8) | lo;
-	cpu->addr_abs = ptr_addr + cpu->y;
+    word ptr_addr = (hi << 8) | lo;
+    cpu->addr_abs = ptr_addr + cpu->y;
 
-	if ((cpu->addr_abs & 0xFF00) != (hi << 8)) {
-		return 1;
-	}
+    if ((cpu->addr_abs & 0xFF00) != (hi << 8)) {
+        return 1;
+    }
 
-	return 0;
+    return 0;
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
 
-byte op_lda(MOS6502 *cpu) {
-	fetch(cpu);
-	cpu->a = cpu->fetched_data;
-	cpu_set_zn_flags(cpu, cpu->a);
-	return 1;
+byte op_lda(MOS6502 *cpu)
+{
+    fetch(cpu);
+    cpu->a = cpu->fetched_data;
+    cpu_set_zn_flags(cpu, cpu->a);
+    return 1;
 }
 
-byte op_ldx(MOS6502 *cpu) {
-	fetch(cpu);
-	cpu->x = cpu->fetched_data;
-	cpu_set_zn_flags(cpu, cpu->x);
-	return 1;
+byte op_ldx(MOS6502 *cpu)
+{
+    fetch(cpu);
+    cpu->x = cpu->fetched_data;
+    cpu_set_zn_flags(cpu, cpu->x);
+    return 1;
 }
 
-byte op_ldy(MOS6502 *cpu) {
-	fetch(cpu);
-	cpu->y = cpu->fetched_data;
-	cpu_set_zn_flags(cpu, cpu->y);
-	return 1;
+byte op_ldy(MOS6502 *cpu)
+{
+    fetch(cpu);
+    cpu->y = cpu->fetched_data;
+    cpu_set_zn_flags(cpu, cpu->y);
+    return 1;
 }
 
-byte op_pha(MOS6502 *cpu) {
-	cpu_push(cpu, cpu->a);
-	return 0;
+byte op_pha(MOS6502 *cpu)
+{
+    cpu_push(cpu, cpu->a);
+    return 0;
 }
 
-byte op_pla(MOS6502 *cpu) {
-	cpu->a = cpu_pop(cpu);
-	cpu_set_zn_flags(cpu, cpu->a);
-	return 0;
+byte op_pla(MOS6502 *cpu)
+{
+    cpu->a = cpu_pop(cpu);
+    cpu_set_zn_flags(cpu, cpu->a);
+    return 0;
 }
 
-byte op_php(MOS6502 *cpu) {
-	cpu_push(cpu, cpu->status | FLAG_B | FLAG_U);
-	return 0;
+byte op_php(MOS6502 *cpu)
+{
+    cpu_push(cpu, cpu->status | FLAG_B | FLAG_U);
+    return 0;
 }
 
-byte op_plp(MOS6502 *cpu) {
-	cpu->status = (cpu_pop(cpu) & ~FLAG_B) | FLAG_U;
-	return 0;
+byte op_plp(MOS6502 *cpu)
+{
+    cpu->status = (cpu_pop(cpu) & ~FLAG_B) | FLAG_U;
+    return 0;
 }
 
-byte op_sta(MOS6502 *cpu) {
-	cpu_write(cpu, cpu->addr_abs, cpu->a);
-	return 0;
+byte op_sta(MOS6502 *cpu)
+{
+    cpu_write(cpu, cpu->addr_abs, cpu->a);
+    return 0;
 }
 
-byte op_stx(MOS6502 *cpu) {
-	cpu_write(cpu, cpu->addr_abs, cpu->x);
-	return 0;
+byte op_stx(MOS6502 *cpu)
+{
+    cpu_write(cpu, cpu->addr_abs, cpu->x);
+    return 0;
 }
 
-byte op_sty(MOS6502 *cpu) {
-	cpu_write(cpu, cpu->addr_abs, cpu->y);
-	return 0;
+byte op_sty(MOS6502 *cpu)
+{
+    cpu_write(cpu, cpu->addr_abs, cpu->y);
+    return 0;
 }
 
-byte op_jmp(MOS6502 *cpu) {
-	cpu->pc = cpu->addr_abs;
-	return 0;
+byte op_jmp(MOS6502 *cpu)
+{
+    cpu->pc = cpu->addr_abs;
+    return 0;
 }
 
-byte op_bpl(MOS6502 *cpu) {
-	if (!CPU_GET_FLAG(cpu, FLAG_N))
-		branch(cpu);
-	return 0;
+byte op_bpl(MOS6502 *cpu)
+{
+    if (!CPU_GET_FLAG(cpu, FLAG_N)) {
+        branch(cpu);
+    }
+    return 0;
 }
 
-byte op_bmi(MOS6502 *cpu) {
-	if (CPU_GET_FLAG(cpu, FLAG_N))
-		branch(cpu);
-	return 0;
+byte op_bmi(MOS6502 *cpu)
+{
+    if (CPU_GET_FLAG(cpu, FLAG_N)) {
+        branch(cpu);
+    }
+    return 0;
 }
 
-byte op_bvc(MOS6502 *cpu) {
-	if (!CPU_GET_FLAG(cpu, FLAG_V))
-		branch(cpu);
-	return 0;
+byte op_bvc(MOS6502 *cpu)
+{
+    if (!CPU_GET_FLAG(cpu, FLAG_V)) {
+        branch(cpu);
+    }
+    return 0;
 }
 
-byte op_bvs(MOS6502 *cpu) {
-	if (CPU_GET_FLAG(cpu, FLAG_V))
-		branch(cpu);
-	return 0;
+byte op_bvs(MOS6502 *cpu)
+{
+    if (CPU_GET_FLAG(cpu, FLAG_V)) {
+        branch(cpu);
+    }
+    return 0;
 }
 
-byte op_bcc(MOS6502 *cpu) {
-	if (!CPU_GET_FLAG(cpu, FLAG_C))
-		branch(cpu);
-	return 0;
+byte op_bcc(MOS6502 *cpu)
+{
+    if (!CPU_GET_FLAG(cpu, FLAG_C)) {
+        branch(cpu);
+    }
+    return 0;
 }
 
-byte op_bcs(MOS6502 *cpu) {
-	if (CPU_GET_FLAG(cpu, FLAG_C))
-		branch(cpu);
-	return 0;
+byte op_bcs(MOS6502 *cpu)
+{
+    if (CPU_GET_FLAG(cpu, FLAG_C)) {
+        branch(cpu);
+    }
+    return 0;
 }
 
-byte op_bne(MOS6502 *cpu) {
-	if (!CPU_GET_FLAG(cpu, FLAG_Z))
-		branch(cpu);
-	return 0;
+byte op_bne(MOS6502 *cpu)
+{
+    if (!CPU_GET_FLAG(cpu, FLAG_Z)) {
+        branch(cpu);
+    }
+    return 0;
 }
 
-byte op_beq(MOS6502 *cpu) {
-	if (CPU_GET_FLAG(cpu, FLAG_Z))
-		branch(cpu);
-	return 0;
+byte op_beq(MOS6502 *cpu)
+{
+    if (CPU_GET_FLAG(cpu, FLAG_Z)) {
+        branch(cpu);
+    }
+    return 0;
 }
 
 // NMOS decimal mode: Z comes from the binary sum, N and V from the result
 // before the high nibble is corrected, C from the corrected result
-static byte adc_decimal(MOS6502 *cpu, word binary) {
-	byte a = cpu->a;
-	byte m = cpu->fetched_data;
+static byte adc_decimal(MOS6502 *cpu, word binary)
+{
+    byte a = cpu->a;
+    byte m = cpu->fetched_data;
 
-	word lo = (a & 0x0F) + (m & 0x0F) + CPU_GET_FLAG(cpu, FLAG_C);
-	if (lo > 0x09)
-		lo += 0x06;
+    word lo = (a & 0x0F) + (m & 0x0F) + CPU_GET_FLAG(cpu, FLAG_C);
+    if (lo > 0x09) {
+        lo += 0x06;
+    }
 
-	word hi = (a >> 4) + (m >> 4) + (lo > 0x0F);
-	word result = (hi << 4) | (lo & 0x0F);
+    word hi = (a >> 4) + (m >> 4) + (lo > 0x0F);
+    word result = (hi << 4) | (lo & 0x0F);
 
-	CPU_SET_FLAG_IF(cpu, FLAG_Z, (binary & 0xFF) == 0);
-	CPU_SET_FLAG_IF(cpu, FLAG_N, result & 0x80);
-	CPU_SET_FLAG_IF(cpu, FLAG_V, (~(a ^ m) & (a ^ result)) & 0x80);
+    CPU_SET_FLAG_IF(cpu, FLAG_Z, (binary & 0xFF) == 0);
+    CPU_SET_FLAG_IF(cpu, FLAG_N, result & 0x80);
+    CPU_SET_FLAG_IF(cpu, FLAG_V, (~(a ^ m) & (a ^ result)) & 0x80);
 
-	if (hi > 0x09)
-		hi += 0x06;
-	CPU_SET_FLAG_IF(cpu, FLAG_C, hi > 0x0F);
+    if (hi > 0x09) {
+        hi += 0x06;
+    }
+    CPU_SET_FLAG_IF(cpu, FLAG_C, hi > 0x0F);
 
-	return ((hi << 4) | (lo & 0x0F)) & 0xFF;
+    return ((hi << 4) | (lo & 0x0F)) & 0xFF;
 }
 
 // NMOS decimal mode: only A changes, every flag comes from the binary result
-static byte sbc_decimal(byte a, byte m, byte carry) {
-	int lo = (a & 0x0F) - (m & 0x0F) - (1 - carry);
-	int hi = (a >> 4) - (m >> 4);
+static byte sbc_decimal(byte a, byte m, byte carry)
+{
+    int lo = (a & 0x0F) - (m & 0x0F) - (1 - carry);
+    int hi = (a >> 4) - (m >> 4);
 
-	if (lo < 0) {
-		lo -= 0x06;
-		hi--;
-	}
-	if (hi < 0)
-		hi -= 0x06;
+    if (lo < 0) {
+        lo -= 0x06;
+        hi--;
+    }
+    if (hi < 0) {
+        hi -= 0x06;
+    }
 
-	return ((hi & 0x0F) << 4) | (lo & 0x0F);
+    return ((hi & 0x0F) << 4) | (lo & 0x0F);
 }
 
-byte op_adc(MOS6502 *cpu) {
-	fetch(cpu);
+byte op_adc(MOS6502 *cpu)
+{
+    fetch(cpu);
 
-	word temp = (word)cpu->a + (word)cpu->fetched_data + (word)CPU_GET_FLAG(cpu, FLAG_C);
+    word temp = (word)cpu->a + (word)cpu->fetched_data + (word)CPU_GET_FLAG(cpu, FLAG_C);
 
-	if (CPU_GET_FLAG(cpu, FLAG_D)) {
-		cpu->a = adc_decimal(cpu, temp);
-		return 1;
-	}
+    if (CPU_GET_FLAG(cpu, FLAG_D)) {
+        cpu->a = adc_decimal(cpu, temp);
+        return 1;
+    }
 
-	CPU_SET_FLAG_IF(cpu, FLAG_C, temp > 0xFF);
+    CPU_SET_FLAG_IF(cpu, FLAG_C, temp > 0xFF);
 
-	CPU_SET_FLAG_IF(cpu, FLAG_V, (~((word)cpu->a ^ (word)cpu->fetched_data) & ((word)cpu->a ^ temp)) & 0x0080);
+    CPU_SET_FLAG_IF(cpu, FLAG_V,
+                    (~((word)cpu->a ^ (word)cpu->fetched_data) & ((word)cpu->a ^ temp)) & 0x0080);
 
-	cpu->a = temp & 0xFF;
-	cpu_set_zn_flags(cpu, cpu->a);
+    cpu->a = temp & 0xFF;
+    cpu_set_zn_flags(cpu, cpu->a);
 
-	return 1;
+    return 1;
 }
 
-byte op_sbc(MOS6502 *cpu) {
-	fetch(cpu);
+byte op_sbc(MOS6502 *cpu)
+{
+    fetch(cpu);
 
-	byte carry = CPU_GET_FLAG(cpu, FLAG_C);
-	word val = (word)cpu->fetched_data ^ 0xFF;
-	word temp = (word)cpu->a + val + (word)carry;
+    byte carry = CPU_GET_FLAG(cpu, FLAG_C);
+    word val = (word)cpu->fetched_data ^ 0xFF;
+    word temp = (word)cpu->a + val + (word)carry;
 
-	CPU_SET_FLAG_IF(cpu, FLAG_C, temp > 0xFF);
-	CPU_SET_FLAG_IF(cpu, FLAG_V, (~((word)cpu->a ^ val) & ((word)cpu->a ^ temp)) & 0x0080);
-	cpu_set_zn_flags(cpu, temp & 0xFF);
+    CPU_SET_FLAG_IF(cpu, FLAG_C, temp > 0xFF);
+    CPU_SET_FLAG_IF(cpu, FLAG_V, (~((word)cpu->a ^ val) & ((word)cpu->a ^ temp)) & 0x0080);
+    cpu_set_zn_flags(cpu, temp & 0xFF);
 
-	if (CPU_GET_FLAG(cpu, FLAG_D))
-		cpu->a = sbc_decimal(cpu->a, cpu->fetched_data, carry);
-	else
-		cpu->a = temp & 0xFF;
+    if (CPU_GET_FLAG(cpu, FLAG_D)) {
+        cpu->a = sbc_decimal(cpu->a, cpu->fetched_data, carry);
+    } else {
+        cpu->a = temp & 0xFF;
+    }
 
-	return 1;
+    return 1;
 }
 
-byte op_clc(MOS6502 *cpu) {
-	CPU_CLR_FLAG(cpu, FLAG_C);
-	return 0;
+byte op_clc(MOS6502 *cpu)
+{
+    CPU_CLR_FLAG(cpu, FLAG_C);
+    return 0;
 }
-byte op_sec(MOS6502 *cpu) {
-	CPU_SET_FLAG(cpu, FLAG_C);
-	return 0;
+byte op_sec(MOS6502 *cpu)
+{
+    CPU_SET_FLAG(cpu, FLAG_C);
+    return 0;
 }
-byte op_cli(MOS6502 *cpu) {
-	CPU_CLR_FLAG(cpu, FLAG_I);
-	return 0;
+byte op_cli(MOS6502 *cpu)
+{
+    CPU_CLR_FLAG(cpu, FLAG_I);
+    return 0;
 }
-byte op_sei(MOS6502 *cpu) {
-	CPU_SET_FLAG(cpu, FLAG_I);
-	return 0;
+byte op_sei(MOS6502 *cpu)
+{
+    CPU_SET_FLAG(cpu, FLAG_I);
+    return 0;
 }
-byte op_clv(MOS6502 *cpu) {
-	CPU_CLR_FLAG(cpu, FLAG_V);
-	return 0;
+byte op_clv(MOS6502 *cpu)
+{
+    CPU_CLR_FLAG(cpu, FLAG_V);
+    return 0;
 }
-byte op_cld(MOS6502 *cpu) {
-	CPU_CLR_FLAG(cpu, FLAG_D);
-	return 0;
+byte op_cld(MOS6502 *cpu)
+{
+    CPU_CLR_FLAG(cpu, FLAG_D);
+    return 0;
 }
-byte op_sed(MOS6502 *cpu) {
-	CPU_SET_FLAG(cpu, FLAG_D);
-	return 0;
-}
-
-byte op_and(MOS6502 *cpu) {
-	fetch(cpu);
-
-	cpu->a &= cpu->fetched_data;
-
-	cpu_set_zn_flags(cpu, cpu->a);
-	return 1;
+byte op_sed(MOS6502 *cpu)
+{
+    CPU_SET_FLAG(cpu, FLAG_D);
+    return 0;
 }
 
-byte op_ora(MOS6502 *cpu) {
-	fetch(cpu);
+byte op_and(MOS6502 *cpu)
+{
+    fetch(cpu);
 
-	cpu->a |= cpu->fetched_data;
+    cpu->a &= cpu->fetched_data;
 
-	cpu_set_zn_flags(cpu, cpu->a);
-	return 1;
+    cpu_set_zn_flags(cpu, cpu->a);
+    return 1;
 }
 
-byte op_eor(MOS6502 *cpu) {
-	fetch(cpu);
+byte op_ora(MOS6502 *cpu)
+{
+    fetch(cpu);
 
-	cpu->a ^= cpu->fetched_data;
+    cpu->a |= cpu->fetched_data;
 
-	cpu_set_zn_flags(cpu, cpu->a);
-	return 1;
+    cpu_set_zn_flags(cpu, cpu->a);
+    return 1;
 }
 
-byte op_asl(MOS6502 *cpu) {
-	fetch(cpu);
-	word temp = (word)cpu->fetched_data << 1;
+byte op_eor(MOS6502 *cpu)
+{
+    fetch(cpu);
 
-	CPU_SET_FLAG_IF(cpu, FLAG_C, temp & 0x100);
+    cpu->a ^= cpu->fetched_data;
 
-	temp &= 0xFF;
-	if (lookup[cpu->opcode].mode == addr_imp)
-		cpu->a = temp;
-	else
-		cpu_write(cpu, cpu->addr_abs, temp);
-
-	cpu_set_zn_flags(cpu, temp);
-	return 0;
+    cpu_set_zn_flags(cpu, cpu->a);
+    return 1;
 }
 
-byte op_lsr(MOS6502 *cpu) {
-	fetch(cpu);
+byte op_asl(MOS6502 *cpu)
+{
+    fetch(cpu);
+    word temp = (word)cpu->fetched_data << 1;
 
-	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->fetched_data & 0x01);
-	word temp = cpu->fetched_data >> 1;
+    CPU_SET_FLAG_IF(cpu, FLAG_C, temp & 0x100);
 
-	if (lookup[cpu->opcode].mode == addr_imp)
-		cpu->a = temp;
-	else
-		cpu_write(cpu, cpu->addr_abs, temp);
+    temp &= 0xFF;
+    if (lookup[cpu->opcode].mode == addr_imp) {
+        cpu->a = temp;
+    } else {
+        cpu_write(cpu, cpu->addr_abs, temp);
+    }
 
-	cpu_set_zn_flags(cpu, temp);
-	return 0;
+    cpu_set_zn_flags(cpu, temp);
+    return 0;
 }
 
-byte op_rol(MOS6502 *cpu) {
-	fetch(cpu);
-	word temp = (word)(cpu->fetched_data << 1) | (CPU_GET_FLAG(cpu, FLAG_C) ? 1 : 0);
+byte op_lsr(MOS6502 *cpu)
+{
+    fetch(cpu);
 
-	CPU_SET_FLAG_IF(cpu, FLAG_C, temp & 0x100);
+    CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->fetched_data & 0x01);
+    word temp = cpu->fetched_data >> 1;
 
-	temp &= 0xFF;
-	if (lookup[cpu->opcode].mode == addr_imp)
-		cpu->a = temp;
-	else
-		cpu_write(cpu, cpu->addr_abs, temp);
+    if (lookup[cpu->opcode].mode == addr_imp) {
+        cpu->a = temp;
+    } else {
+        cpu_write(cpu, cpu->addr_abs, temp);
+    }
 
-	cpu_set_zn_flags(cpu, temp);
-	return 0;
+    cpu_set_zn_flags(cpu, temp);
+    return 0;
 }
 
-byte op_ror(MOS6502 *cpu) {
-	fetch(cpu);
-	word temp = (word)(cpu->fetched_data >> 1) | (CPU_GET_FLAG(cpu, FLAG_C) ? 0x80 : 0);
+byte op_rol(MOS6502 *cpu)
+{
+    fetch(cpu);
+    word temp = (word)(cpu->fetched_data << 1) | (CPU_GET_FLAG(cpu, FLAG_C) ? 1 : 0);
 
-	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->fetched_data & 0x01);
+    CPU_SET_FLAG_IF(cpu, FLAG_C, temp & 0x100);
 
-	if (lookup[cpu->opcode].mode == addr_imp)
-		cpu->a = temp;
-	else
-		cpu_write(cpu, cpu->addr_abs, temp);
+    temp &= 0xFF;
+    if (lookup[cpu->opcode].mode == addr_imp) {
+        cpu->a = temp;
+    } else {
+        cpu_write(cpu, cpu->addr_abs, temp);
+    }
 
-	cpu_set_zn_flags(cpu, temp);
-	return 0;
+    cpu_set_zn_flags(cpu, temp);
+    return 0;
 }
 
-byte op_cmp(MOS6502 *cpu) {
-	fetch(cpu);
-	word temp = (word)cpu->a - (word)cpu->fetched_data;
-	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->a >= cpu->fetched_data);
-	cpu_set_zn_flags(cpu, temp & 0xFF);
-	return 1;
+byte op_ror(MOS6502 *cpu)
+{
+    fetch(cpu);
+    word temp = (word)(cpu->fetched_data >> 1) | (CPU_GET_FLAG(cpu, FLAG_C) ? 0x80 : 0);
+
+    CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->fetched_data & 0x01);
+
+    if (lookup[cpu->opcode].mode == addr_imp) {
+        cpu->a = temp;
+    } else {
+        cpu_write(cpu, cpu->addr_abs, temp);
+    }
+
+    cpu_set_zn_flags(cpu, temp);
+    return 0;
 }
 
-byte op_cpx(MOS6502 *cpu) {
-	fetch(cpu);
-	word temp = (word)cpu->x - (word)cpu->fetched_data;
-	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->x >= cpu->fetched_data);
-	cpu_set_zn_flags(cpu, temp & 0xFF);
-	return 0;
+byte op_cmp(MOS6502 *cpu)
+{
+    fetch(cpu);
+    word temp = (word)cpu->a - (word)cpu->fetched_data;
+    CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->a >= cpu->fetched_data);
+    cpu_set_zn_flags(cpu, temp & 0xFF);
+    return 1;
 }
 
-byte op_cpy(MOS6502 *cpu) {
-	fetch(cpu);
-	word temp = (word)cpu->y - (word)cpu->fetched_data;
-	CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->y >= cpu->fetched_data);
-	cpu_set_zn_flags(cpu, temp & 0xFF);
-	return 0;
+byte op_cpx(MOS6502 *cpu)
+{
+    fetch(cpu);
+    word temp = (word)cpu->x - (word)cpu->fetched_data;
+    CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->x >= cpu->fetched_data);
+    cpu_set_zn_flags(cpu, temp & 0xFF);
+    return 0;
 }
 
-byte op_inc(MOS6502 *cpu) {
-	fetch(cpu);
-	word temp = cpu->fetched_data + 1;
-	cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
-	cpu_set_zn_flags(cpu, temp & 0x00FF);
-	return 0;
+byte op_cpy(MOS6502 *cpu)
+{
+    fetch(cpu);
+    word temp = (word)cpu->y - (word)cpu->fetched_data;
+    CPU_SET_FLAG_IF(cpu, FLAG_C, cpu->y >= cpu->fetched_data);
+    cpu_set_zn_flags(cpu, temp & 0xFF);
+    return 0;
 }
 
-byte op_dec(MOS6502 *cpu) {
-	fetch(cpu);
-	word temp = cpu->fetched_data - 1;
-	cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
-	cpu_set_zn_flags(cpu, temp & 0x00FF);
-	return 0;
+byte op_inc(MOS6502 *cpu)
+{
+    fetch(cpu);
+    word temp = cpu->fetched_data + 1;
+    cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+    cpu_set_zn_flags(cpu, temp & 0x00FF);
+    return 0;
 }
 
-byte op_inx(MOS6502 *cpu) {
-	cpu->x++;
-	cpu_set_zn_flags(cpu, cpu->x);
-	return 0;
+byte op_dec(MOS6502 *cpu)
+{
+    fetch(cpu);
+    word temp = cpu->fetched_data - 1;
+    cpu_write(cpu, cpu->addr_abs, temp & 0x00FF);
+    cpu_set_zn_flags(cpu, temp & 0x00FF);
+    return 0;
 }
 
-byte op_dex(MOS6502 *cpu) {
-	cpu->x--;
-	cpu_set_zn_flags(cpu, cpu->x);
-	return 0;
+byte op_inx(MOS6502 *cpu)
+{
+    cpu->x++;
+    cpu_set_zn_flags(cpu, cpu->x);
+    return 0;
 }
 
-byte op_iny(MOS6502 *cpu) {
-	cpu->y++;
-	cpu_set_zn_flags(cpu, cpu->y);
-	return 0;
+byte op_dex(MOS6502 *cpu)
+{
+    cpu->x--;
+    cpu_set_zn_flags(cpu, cpu->x);
+    return 0;
 }
 
-byte op_dey(MOS6502 *cpu) {
-	cpu->y--;
-	cpu_set_zn_flags(cpu, cpu->y);
-	return 0;
+byte op_iny(MOS6502 *cpu)
+{
+    cpu->y++;
+    cpu_set_zn_flags(cpu, cpu->y);
+    return 0;
 }
 
-byte op_jsr(MOS6502 *cpu) {
-	word ret_addr = cpu->pc - 1;
-	cpu_push_word(cpu, ret_addr);
-	cpu->pc = cpu->addr_abs;
-	return 0;
+byte op_dey(MOS6502 *cpu)
+{
+    cpu->y--;
+    cpu_set_zn_flags(cpu, cpu->y);
+    return 0;
 }
 
-byte op_rts(MOS6502 *cpu) {
-	cpu->pc = cpu_pop_word(cpu) + 1;
-	return 0;
+byte op_jsr(MOS6502 *cpu)
+{
+    word ret_addr = cpu->pc - 1;
+    cpu_push_word(cpu, ret_addr);
+    cpu->pc = cpu->addr_abs;
+    return 0;
 }
 
-byte op_rti(MOS6502 *cpu) {
-	cpu->status = cpu_pop(cpu);
-	cpu->status &= ~FLAG_B;
-	cpu->status |= FLAG_U;
-	cpu->pc = cpu_pop_word(cpu);
-	return 0;
-}
-byte op_bit(MOS6502 *cpu) {
-	fetch(cpu);
-	word temp = cpu->a & cpu->fetched_data;
-
-	CPU_SET_FLAG_IF(cpu, FLAG_Z, (temp & 0xFF) == 0);
-	CPU_SET_FLAG_IF(cpu, FLAG_N, cpu->fetched_data & 0x80);
-	CPU_SET_FLAG_IF(cpu, FLAG_V, cpu->fetched_data & 0x40);
-
-	return 0;
+byte op_rts(MOS6502 *cpu)
+{
+    cpu->pc = cpu_pop_word(cpu) + 1;
+    return 0;
 }
 
-byte op_tax(MOS6502 *cpu) {
-	cpu->x = cpu->a;
-	cpu_set_zn_flags(cpu, cpu->x);
-	return 0;
+byte op_rti(MOS6502 *cpu)
+{
+    cpu->status = cpu_pop(cpu);
+    cpu->status &= ~FLAG_B;
+    cpu->status |= FLAG_U;
+    cpu->pc = cpu_pop_word(cpu);
+    return 0;
+}
+byte op_bit(MOS6502 *cpu)
+{
+    fetch(cpu);
+    word temp = cpu->a & cpu->fetched_data;
+
+    CPU_SET_FLAG_IF(cpu, FLAG_Z, (temp & 0xFF) == 0);
+    CPU_SET_FLAG_IF(cpu, FLAG_N, cpu->fetched_data & 0x80);
+    CPU_SET_FLAG_IF(cpu, FLAG_V, cpu->fetched_data & 0x40);
+
+    return 0;
 }
 
-byte op_txa(MOS6502 *cpu) {
-	cpu->a = cpu->x;
-	cpu_set_zn_flags(cpu, cpu->a);
-	return 0;
+byte op_tax(MOS6502 *cpu)
+{
+    cpu->x = cpu->a;
+    cpu_set_zn_flags(cpu, cpu->x);
+    return 0;
 }
 
-byte op_tsx(MOS6502 *cpu) {
-	cpu->x = cpu->sp;
-	cpu_set_zn_flags(cpu, cpu->x);
-	return 0;
+byte op_txa(MOS6502 *cpu)
+{
+    cpu->a = cpu->x;
+    cpu_set_zn_flags(cpu, cpu->a);
+    return 0;
 }
 
-byte op_txs(MOS6502 *cpu) {
-	cpu->sp = cpu->x;
-	return 0;
+byte op_tsx(MOS6502 *cpu)
+{
+    cpu->x = cpu->sp;
+    cpu_set_zn_flags(cpu, cpu->x);
+    return 0;
 }
 
-byte op_tay(MOS6502 *cpu) {
-	cpu->y = cpu->a;
-	cpu_set_zn_flags(cpu, cpu->y);
-	return 0;
+byte op_txs(MOS6502 *cpu)
+{
+    cpu->sp = cpu->x;
+    return 0;
 }
 
-byte op_tya(MOS6502 *cpu) {
-	cpu->a = cpu->y;
-	cpu_set_zn_flags(cpu, cpu->a);
-	return 0;
+byte op_tay(MOS6502 *cpu)
+{
+    cpu->y = cpu->a;
+    cpu_set_zn_flags(cpu, cpu->y);
+    return 0;
 }
 
-byte op_nop(MOS6502 *cpu) {
-	(void)cpu;
-	return 0;
+byte op_tya(MOS6502 *cpu)
+{
+    cpu->a = cpu->y;
+    cpu_set_zn_flags(cpu, cpu->a);
+    return 0;
 }
 
-byte op_brk(MOS6502 *cpu) {
-	cpu->pc++;	// BRK skips a padding byte
-	cpu_push_word(cpu, cpu->pc);
-	cpu_push(cpu, cpu->status | FLAG_B | FLAG_U);
-	CPU_SET_FLAG(cpu, FLAG_I);
-	cpu->pc = cpu_read_word(cpu, ADDR_IRQ_VECTOR);
-	return 0;
+byte op_nop(MOS6502 *cpu)
+{
+    (void)cpu;
+    return 0;
 }
 
-byte op_xxx(MOS6502 *cpu) {
-	(void)cpu;
-	return 0;
+byte op_brk(MOS6502 *cpu)
+{
+    cpu->pc++; // BRK skips a padding byte
+    cpu_push_word(cpu, cpu->pc);
+    cpu_push(cpu, cpu->status | FLAG_B | FLAG_U);
+    CPU_SET_FLAG(cpu, FLAG_I);
+    cpu->pc = cpu_read_word(cpu, ADDR_IRQ_VECTOR);
+    return 0;
+}
+
+byte op_xxx(MOS6502 *cpu)
+{
+    (void)cpu;
+    return 0;
 }

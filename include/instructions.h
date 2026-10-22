@@ -4,10 +4,10 @@
 #include "mos6502.h"
 
 struct Instruction {
-	char *name;
-	byte (*operate)(MOS6502 *);
-	byte (*mode)(MOS6502 *);
-	byte cycles;
+    char *name;
+    byte (*operate)(MOS6502 *);
+    byte (*mode)(MOS6502 *);
+    byte cycles;
 };
 
 extern struct Instruction lookup[256];
@@ -88,18 +88,18 @@ byte op_cld(MOS6502 *cpu);
 byte op_sed(MOS6502 *cpu);
 
 byte op_nop(MOS6502 *cpu);
-byte op_xxx(MOS6502 *cpu);	// :) illegal opcodes
+byte op_xxx(MOS6502 *cpu); // :) illegal opcodes
 
-byte addr_imp(MOS6502 *cpu);  // implied
-byte addr_imm(MOS6502 *cpu);  // immediate
-byte addr_zp0(MOS6502 *cpu);  // zero page
-byte addr_abs(MOS6502 *cpu);  // absolute
-byte addr_rel(MOS6502 *cpu);  // relative
-byte addr_ind(MOS6502 *cpu);  // indirect
+byte addr_imp(MOS6502 *cpu); // implied
+byte addr_imm(MOS6502 *cpu); // immediate
+byte addr_zp0(MOS6502 *cpu); // zero page
+byte addr_abs(MOS6502 *cpu); // absolute
+byte addr_rel(MOS6502 *cpu); // relative
+byte addr_ind(MOS6502 *cpu); // indirect
 byte addr_zp0x(MOS6502 *cpu);
 byte addr_zp0y(MOS6502 *cpu);
 byte addr_absx(MOS6502 *cpu);
 byte addr_absy(MOS6502 *cpu);
 byte addr_indx(MOS6502 *cpu);
 byte addr_indy(MOS6502 *cpu);
-#endif	// !__INSTRUCTIONS_H
+#endif // !__INSTRUCTIONS_H
