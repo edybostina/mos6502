@@ -42,9 +42,9 @@ Worth keeping:
   - -Wall -Wextra -Werror, clang-format and a justfile. Keep all three.
 
 Needs work:
-  - No tests in the tree. 6502_functional_test.bin is downloaded but
-    untracked, and nothing in the repo runs it; Phase 0's bugs were found
-    with a throwaway harness. Phase 1 item 1 makes that harness permanent.
+  - One test so far: `just test` runs the functional test (Phase 1 item 1).
+    It checks results, not timing or interrupts; Phase 1 items 5-6 and
+    nestest (Phase 3 item 4) cover those.
   - bus.h mixes three machines' address maps: Apple II ($C000 keyboard,
     $F800 monitor), NES ($07FF RAM mirror) and the basic platform ($FF00
     output).
@@ -60,7 +60,7 @@ Needs work:
 PHASE 0: MAKE THE CPU CORRECT  [COMPLETE]
 Goal: Klaus Dormann's functional test reaches its success trap at $3469.
 ================================================================================
-Found by running the untracked 6502_functional_test.bin (load at $0000, PC =
+Found by running 6502_functional_test.bin (load at $0000, PC =
 $0400, stop when PC stops changing). Each item names the trap the test
 stopped at before its fix. It now reaches $3469 after 30.6M instructions and
 96.2M cycles, clean under ASan and UBSan. The test cannot see item 4; a
@@ -100,16 +100,18 @@ Goal: never debug blind again. Every later phase leans on the runner, the
 step API and the trace log built here.
 ================================================================================
 
-   1. `just test` with the functional test
+   1. `just test` with the functional test [DONE]
       Effort: S | Unlocks: every regression check in this file
-      Scope: tests/klaus.c loads the image at $0000, sets PC = $0400, steps
+      Now: tests/klaus.c loads the image at $0000, sets PC = $0400, steps
         until PC stops changing, and passes only if it stopped at $3469. On a
-        failure it prints the trap PC, the registers and the last 16 PCs.
-        Move the .bin into tests/roms/ and commit it (check its license
-        first), or fetch it from a just recipe.
+        failure it prints the trap PC, the test number (kept at $0200), the
+        registers and the last 16 PCs, and exits 1. The ROM lives in
+        tests/roms/ with its GPL-3.0 license and .a65 source, pinned to
+        upstream commit 7954e2d (tests/roms/README.txt).
       Note: $3469 belongs to the stock binary. Reassemble the test with other
         options and the address moves; its .lst file shows the new one. The
-        whole run takes about a second at -O2.
+        run takes about a second. New test programs go in tests/ and get a
+        line in the `test` recipe; the recipe stops at the first failure.
 
    2. cpu_step() and a cycle counter
       Effort: S | Unlocks: PPU sync (Phase 4), nestest's CYC column
