@@ -48,9 +48,7 @@ Needs work:
   - bus.h mixes three machines' address maps: Apple II ($C000 keyboard,
     $F800 monitor), NES ($07FF RAM mirror) and the basic platform ($FF00
     output).
-  - The CPU cannot take interrupts and keeps no running cycle count:
-    cpu_execute(cpu, n) runs whole instructions until n is spent and drops
-    the overshoot.
+  - The CPU cannot take interrupts yet (Phase 1 item 5).
   - main.c halts by peeking memory for a BRK opcode, so no program it runs
     can use BRK, and the peek goes through the same bus path as a real read.
     Once reads have side effects (any PPU register), peeking changes the
@@ -113,12 +111,17 @@ step API and the trace log built here.
         run takes about a second. New test programs go in tests/ and get a
         line in the `test` recipe; the recipe stops at the first failure.
 
-   2. cpu_step() and a cycle counter
+   2. cpu_step() and a cycle counter [DONE]
       Effort: S | Unlocks: PPU sync (Phase 4), nestest's CYC column
-      Scope: int cpu_step(MOS6502 *) runs one instruction and returns its
-        cycles; a uint64_t total_cycles on the CPU counts them since reset.
-        Reset itself costs 7 cycles (nestest.log starts at CYC:7).
-        cpu_execute goes away, or becomes a loop over cpu_step.
+      Now: int cpu_step(MOS6502 *) runs one instruction and returns its
+        cycles, penalties included, and leaves the same count in
+        cpu->cycles. A uint64_t total_cycles counts since reset, which sets
+        it to 7 (the reset sequence's cost; nestest.log starts at CYC:7).
+        cpu_execute is gone. The CPU no longer ticks the bus: the caller
+        does, after each step (main.c today, the NES machine loop later).
+        tests/cpu_cycles.c pins base counts and page-cross and branch
+        penalties; klaus reports cpu.total_cycles (96241374, its old sum
+        plus reset's 7).
 
    3. Side-effect-free reads
       Effort: S | Unlocks: items 4-5, the debugger

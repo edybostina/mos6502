@@ -17,8 +17,8 @@ int main(void)
     bus.rom_locked = 0;
 
     static const byte program[] = {
-        0xA2, 0x00, // LDX #$00       ; X = 0
-                    // LOOP:
+        0xA2, 0x00,               // LDX #$00       ; X = 0
+                                  // LOOP:
         OP_LDA_ABS_X, 0x0F, 0x80, // LDA $800F,X    ; Load char from string
         OP_BEQ, 0x07,             // BEQ END        ; If 0, end
         OP_STA_ABS, 0x00, 0xFF,   // STA $FF00      ; Output char
@@ -41,7 +41,8 @@ int main(void)
     printf("--- Booting up... ---\n");
 
     while (cpu_read(&cpu, cpu.pc) != OP_BRK) {
-        cpu_execute(&cpu, 1);
+        int cycles = cpu_step(&cpu);
+        bus_tick(&bus, cycles);
     }
     platform_basic_free(platform);
 

@@ -55,7 +55,6 @@ typedef struct MOS6502 {
 
 void cpu_connect_bus(MOS6502 *cpu, Bus *bus);
 void cpu_reset(MOS6502 *cpu);
-void cpu_execute(MOS6502 *cpu, int cycles);
 int cpu_step(MOS6502 *cpu);
 
 static inline byte cpu_read(MOS6502 *cpu, word addr)

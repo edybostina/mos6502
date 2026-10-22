@@ -46,14 +46,12 @@ int main(int argc, char **argv)
 
     word history[HISTORY_LEN] = {0};
     unsigned long long instructions = 0;
-    unsigned long long cycles = 0;
     word pc;
 
     do {
         pc = cpu.pc;
         history[instructions % HISTORY_LEN] = pc;
-        cpu_execute(&cpu, 1);
-        cycles += cpu.cycles;
+        cpu_step(&cpu);
         instructions++;
     } while (cpu.pc != pc && instructions < MAX_INSTRUCTIONS);
 
@@ -62,7 +60,7 @@ int main(int argc, char **argv)
 
     if (passed) {
         printf("PASS  6502 functional test: reached $%04X after %llu instructions, %llu cycles\n",
-               pc, instructions, cycles);
+               pc, instructions, (unsigned long long)cpu.total_cycles);
     } else {
         if (trapped) {
             printf(

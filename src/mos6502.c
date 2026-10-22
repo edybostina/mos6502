@@ -234,19 +234,6 @@ void cpu_connect_bus(MOS6502 *cpu, Bus *bus)
     cpu->bus = bus;
 }
 
-void cpu_execute(MOS6502 *cpu, int cycles)
-{
-    int remaining = cycles;
-
-    while (remaining > 0) {
-        int c = cpu_step(cpu);
-
-        bus_tick(cpu->bus, c);
-
-        remaining -= c;
-    }
-}
-
 int cpu_step(MOS6502 *cpu)
 {
     cpu->opcode = cpu_read(cpu, cpu->pc++);
